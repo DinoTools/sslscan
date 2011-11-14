@@ -1783,7 +1783,7 @@ int testHost(struct sslCheckOptions *options)
     if (status == true)
     {
         // Test preferred ciphers...
-        printf("\n  %sPrefered Server Cipher(s):%s\n", COL_BLUE, RESET);
+        printf("\n  %sPreferred Server Cipher(s):%s\n", COL_BLUE, RESET);
         if (options->pout == true)
             printf("|| Version || Bits || Cipher ||\n");
         switch (options->sslVersion)
