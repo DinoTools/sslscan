@@ -1549,6 +1549,7 @@ int getCertificate(struct sslCheckOptions *options)
                                                     printf("    DSA Public Key: NULL\n");
                                                 }
                                                 break;
+#ifdef EVP_PKEY_EC
                                             case EVP_PKEY_EC:
                                                 if (publicKey->pkey.ec)
                                                 {
@@ -1567,6 +1568,7 @@ int getCertificate(struct sslCheckOptions *options)
                                                     printf("    EC Public Key: NULL\n");
                                                 }
                                                 break;
+#endif // #ifdef EVP_PKEY_EC
                                             default:
                                                 printf("    Public Key: Unknown\n");
                                                 if (options->xmlOutput != 0)
