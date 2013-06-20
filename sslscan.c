@@ -2133,8 +2133,8 @@ int main(int argc, char *argv[])
                 case ssl_all:
                     populateCipherList(&options, SSLv2_client_method());
                     populateCipherList(&options, SSLv3_client_method());
-                    populateCipherList(&options, TLSv1_client_method());
-                    populateCipherList(&options, TLSv1_1_client_method());
+					populateCipherList(&options, TLSv1_client_method());
+					populateCipherList(&options, TLSv1_1_client_method());
 					populateCipherList(&options, TLSv1_2_client_method());
                     break;
                 case ssl_v2:
