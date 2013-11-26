@@ -1,8 +1,8 @@
 Changelog
 =========
 
-Version: 1.8.4
-Date   : xx/xx/2010
+Version: 1.9.0
+Date   : 26/11/2013
 Author : Jacob Appelbaum <jacob@appelbaum.net>
 Changes: The following are a list of changes
          > Add demo targets in Makefile
