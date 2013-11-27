@@ -1724,7 +1724,7 @@ int testHost(struct sslCheckOptions *options)
         printf("    %s\n",sslCipherPointer->name);
 
         if (options->xmlOutput != 0)
-            fprintf(options->xmlOutput, " <client-cipher cipher=\"%s\">\n", sslCipherPointer->name);
+            fprintf(options->xmlOutput, " <client-cipher cipher=\"%s\" />\n", sslCipherPointer->name);
 
         sslCipherPointer = sslCipherPointer->next;
     }
