@@ -131,7 +131,7 @@ struct sslCipher
     char *version;
     int bits;
     char description[512];
-    SSL_METHOD *sslMethod;
+    const SSL_METHOD *sslMethod;
     struct sslCipher *next;
 };
 
@@ -140,6 +140,7 @@ struct sslCheckOptions
     // Program Options...
     char host[512];
     int port;
+    unsigned char localip[4];
     int noFailed;
     int reneg;
     int starttls_ftp;
@@ -177,7 +178,7 @@ struct renegotiationOutput
 };
 
 // Adds Ciphers to the Cipher List structure
-int populateCipherList(struct sslCheckOptions *options, SSL_METHOD *sslMethod)
+int populateCipherList(struct sslCheckOptions *options, const SSL_METHOD *sslMethod)
 {
     // Variables...
     int returnCode = true;
@@ -310,6 +311,26 @@ int tcpConnect(struct sslCheckOptions *options)
     {
         printf("%s    ERROR: Could not open a socket.%s\n", COL_RED, RESET);
         return 0;
+    }
+
+    // bind to local ip if requested
+    if( options->localip[0]!= 0 )
+    {
+        struct sockaddr_in me;
+        unsigned long addr;
+        memset((char*)&me,0,sizeof(me));
+        me.sin_family = AF_INET;
+        addr = (unsigned long)
+            ((unsigned long)options->localip[0]<<24L) |
+            ((unsigned long)options->localip[1]<<16L) |
+            ((unsigned long)options->localip[2]<< 8L) |
+            ((unsigned long)options->localip[3]);
+        me.sin_addr.s_addr = htonl(addr);
+        if( bind(socketDescriptor,(struct sockaddr *)&me,sizeof(me)) == -1 )
+        {
+            printf("%s    ERROR: Could not bind to local interface: %s.%s\n",COL_RED, "OZAPTF", RESET);
+            return 0;
+        }
     }
 
     // Connect
@@ -722,7 +743,7 @@ void tls_reneg_init(struct sslCheckOptions *options)
 
 
 // Check if the server supports renegotiation
-int testRenegotiation(struct sslCheckOptions *options, SSL_METHOD *sslMethod)
+int testRenegotiation(struct sslCheckOptions *options, const SSL_METHOD *sslMethod)
 {
     // Variables...
     int cipherStatus;
@@ -1154,7 +1175,7 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
 
 
 // Test for preferred ciphers
-int defaultCipher(struct sslCheckOptions *options, SSL_METHOD *sslMethod)
+int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMethod)
 {
     // Variables...
     int cipherStatus;
@@ -1288,11 +1309,11 @@ int defaultCipher(struct sslCheckOptions *options, SSL_METHOD *sslMethod)
                 status = false;
                 printf("%s    ERROR: Could set cipher.%s\n", COL_RED, RESET);
             }
-            
+
             // Free CTX Object
             SSL_CTX_free(options->ctx);
         }
-    
+
         // Error Creating Context Object
         else
         {
@@ -1325,7 +1346,7 @@ int getCertificate(struct sslCheckOptions *options)
     BIO *fileBIO = NULL;
     X509 *x509Cert = NULL;
     EVP_PKEY *publicKey = NULL;
-    SSL_METHOD *sslMethod = NULL;
+    const SSL_METHOD *sslMethod = NULL;
     ASN1_OBJECT *asn1Object = NULL;
     X509_EXTENSION *extension = NULL;
     char buffer[1024];
@@ -1449,13 +1470,13 @@ int getCertificate(struct sslCheckOptions *options)
 						return(1);
 
 					if (bs->length <= 4)
-					{   
+					{
 						l=ASN1_INTEGER_get(bs);
 						if (l < 0)
-						{   
-							l= -l; 
+						{
+							l= -l;
 							neg="-";
-						}   
+						}
 						else
 							neg="";
 						if (BIO_printf(bp," %s%lu (%s0x%lx)\n",neg,l,neg,l) <= 0)
@@ -1463,9 +1484,9 @@ int getCertificate(struct sslCheckOptions *options)
 						if (options->xmlOutput != 0)
 							if (BIO_printf(xml_bp,"   <serial>%s%lu (%s0x%lx)</serial>\n",neg,l,neg,l) <= 0)
 								return(1);
-					}   
+					}
 					else
-					{   
+					{
 						neg=(bs->type == V_ASN1_NEG_INTEGER)?" (Negative)":"";
 						if (BIO_printf(bp,"%1s%s","",neg) <= 0)
 							return(1);
@@ -1475,7 +1496,7 @@ int getCertificate(struct sslCheckOptions *options)
 								return(1);
 
 						for (i=0; i<bs->length; i++)
-						{   
+						{
 							if (BIO_printf(bp,"%02x%c",bs->data[i],
 										((i+1 == bs->length)?'\n':':')) <= 0)
 								return(1);
@@ -1491,13 +1512,13 @@ int getCertificate(struct sslCheckOptions *options)
 										return(1);
 								}
 							}
-						}   
+						}
 
 						if (options->xmlOutput != 0)
 							if (BIO_printf(xml_bp,"</serial>\n") <= 0)
 								return(1);
 
-					} 
+					}
 					if(NULL != bp)
 						BIO_free(bp);
 					// We don't free the xml_bp because it will be used in the future
@@ -1866,7 +1887,7 @@ int testHost(struct sslCheckOptions *options)
             // Free CTX Object
             SSL_CTX_free(options->ctx);
         }
-    
+
         // Error Creating Context Object
         else
         {
@@ -1927,13 +1948,34 @@ int testHost(struct sslCheckOptions *options)
     return status;
 }
 
+int str_to_ip(char *str, unsigned char ip[4])
+{
+    unsigned int in[4];
+    int i;
+
+    if (sscanf(str,"%u.%u.%u.%u",&(in[0]),&(in[1]),&(in[2]),&(in[3])) == 4)
+    {
+        for (i=0; i<4; i++)
+            if (in[i] > 255)
+            {
+                printf("%sERROR: Invalid local IP address %s.%s\n", COL_RED, str, RESET);
+                return(0);
+            }
+        ip[0]=in[0];
+        ip[1]=in[1];
+        ip[2]=in[2];
+        ip[3]=in[3];
+        return(1);
+    }
+    return(0);
+}
 
 int main(int argc, char *argv[])
 {
     // Variables...
     struct sslCheckOptions options;
     struct sslCipher *sslCipherPointer;
-    int status;
+    int status=0;
     int argLoop;
     int tempInt;
     int maxSize;
@@ -1947,6 +1989,7 @@ int main(int argc, char *argv[])
     options.port = 0;
     xmlArg = 0;
     strcpy(options.host, "127.0.0.1");
+    options.localip[0] = options.localip[1] = options.localip[2] = options.localip[3] = 0;
     options.noFailed = false;
     options.reneg = false;
     options.starttls_ftp = false;
@@ -1972,6 +2015,16 @@ int main(int argc, char *argv[])
         {
             mode = mode_multiple;
             options.targets = argLoop;
+        }
+
+        // localip
+        else if ((strncmp("--localip=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10))
+        {
+            if( str_to_ip(argv[argLoop]+10,&(options.localip[0])) == 0)
+            {
+                printf("%sERROR: Local IP argument has wrong format: %s.%s\n", COL_RED, argv[argLoop]+10, RESET);
+                exit(0);
+            }
         }
 
         // Show only supported
@@ -2146,6 +2199,7 @@ int main(int argc, char *argv[])
             printf("  %s--targets=<file>%s     A file containing a list of hosts to\n", COL_GREEN, RESET);
             printf("                       check.  Hosts can  be supplied  with\n");
             printf("                       ports (i.e. host:port).\n");
+            printf("  %s--localip=<ip>%s       Local IP from which connection should be made\n", COL_GREEN, RESET);
             printf("  %s--no-failed%s          List only accepted ciphers  (default\n", COL_GREEN, RESET);
             printf("                       is to listing all ciphers).\n");
             printf("  %s--ssl2%s               Only check SSLv2 ciphers.\n", COL_GREEN, RESET);
@@ -2217,7 +2271,11 @@ int main(int argc, char *argv[])
 
             // Do the testing...
             if (mode == mode_single)
+            {
                 status = testHost(&options);
+                if(!status)
+                    printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options.host, RESET);
+            }
             else
             {
                 if (fileExists(argv[options.targets] + 10) == true)
@@ -2247,6 +2305,11 @@ int main(int argc, char *argv[])
 
                                 // Test the host...
                                 status = testHost(&options);
+                                if(!status)
+                                {
+                                    // print error and continue
+                                    printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options.host, RESET);
+                                }
                             }
                             readLine(targetsFile, line, sizeof(line));
                         }
@@ -2255,7 +2318,7 @@ int main(int argc, char *argv[])
                 else
                     printf("%sERROR: Targets file %s does not exist.%s\n", COL_RED, argv[options.targets] + 10, RESET);
             }
-    
+
             // Free Structures
             while (options.ciphers != 0)
             {
@@ -2275,4 +2338,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-

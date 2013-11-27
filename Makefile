@@ -4,6 +4,10 @@ MANPATH = /usr/share/man/
 CFLAGS=-I/usr/local/ssl/include/ -I/usr/local/ssl/include/openssl/
 LDFLAGS=-L/usr/local/ssl/lib/
 
+CFLAGS_CUSTOM=-g -Wall -static-libgcc
+OPENSSL_CUSTOM=/home/flowher/openssl-1.0.1e
+INC_CUSTOM=-I$(OPENSSL_CUSTOM)/include
+
 all:
 	gcc -g -Wall ${LDFLAGS} ${SRCS} ${CFLAGS} -lssl -lcrypto -o sslscan
 
@@ -18,8 +22,8 @@ uninstall:
 clean:
 	rm -f sslscan
 
-newopenssl:
-	gcc -o sslscan -g -Wall -I /tmp/openssl-1.0.0a/ -L/tmp/openssl-1.0.0a/ sslscan.c /tmp/openssl-1.0.0a/libssl.a /tmp/openssl-1.0.0a/libcrypto.a
+custom_build:
+	gcc $(CFLAGS_CUSTOM) -o sslscan sslscan.c $(INC_CUSTOM) $(OPENSSL_CUSTOM)/libssl.a $(OPENSSL_CUSTOM)/libcrypto.a -ldl
 
 demo: demo-https demo-xmpp demo-pop3 demo-imap demo-sni
 	echo "See above!"
