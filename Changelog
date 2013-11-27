@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Version: 1.10.0
+Date   : xx/xx/201x
+Author : xxx
+Changes: The following are a list of changes
+         > Fixing XML output (tecknicaltom)
+         > Win32 support (not complete) (mboman)
+         > TLS 1.1 and TLS 1.2 ciphersuites (twwbond)
+         > Perform scan from selected local IP (flowher)
+
 Version: 1.9.0
 Date   : 26/11/2013
 Author : Jacob Appelbaum <jacob@appelbaum.net>
