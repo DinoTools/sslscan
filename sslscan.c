@@ -34,17 +34,44 @@
 
 // Includes...
 #include <string.h>
+
+// http://msdn.microsoft.com/en-us/library/b0084kay.aspx
+#if defined(_WIN32) || defined(WIN32) || defined(__WIN32__) || defined(ming) 
+#define PLAT_WINDOWS 1
+#endif
+
+#if defined(__FreeBSD__)
+#define PLAT_FREEBSD 1
+#endif
+
+#if defined(PLAT_WINDOWS)
+#include <stdio.h>
+#include <winsock2.h>
+#include <windows.h>
+#include <ws2tcpip.h>
+#include <basetsd.h>
+#define snprintf(...) _snprintf(__VA_ARGS__)
+#define close(s) closesocket(s)
+DWORD dwError;
+#else
 #include <netdb.h>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <sys/socket.h>
+#include <fcntl.h>
+#endif //PLAT_WINDOWS
+
+#include <sys/stat.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <openssl/pkcs12.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-#ifdef __FreeBSD__
+#if defined(PLAT_WINDOWS)
+#include <openssl/applink.c>
+#endif //PLAT_WINDOWS
+
+#ifdef PLAT_FREEBSD
 #include <netinet/in.h>
 #endif
 
@@ -72,7 +99,7 @@
 // code.
 
 // Colour Console Output...
-#if !defined(__WIN32__)
+#if !defined(PLAT_WINDOWS)
 // Always better to do "const char RESET[] = " because it saves relocation records.
 const char *RESET = "[0m";            // DEFAULT
 const char *COL_RED = "[31m";     // RED
@@ -214,7 +241,11 @@ int populateCipherList(struct sslCheckOptions *options, SSL_METHOD *sslMethod)
 // File Exists
 int fileExists(char *fileName)
 {
+#if PLAT_WINDOWS
+	return _access(fileName, 0) == 0;
+#else
     return access(fileName, X_OK) == 0;
+#endif
 }
 
 
@@ -1549,6 +1580,7 @@ int getCertificate(struct sslCheckOptions *options)
                                                     printf("    DSA Public Key: NULL\n");
                                                 }
                                                 break;
+#ifdef EVP_PKEY_EC
                                             case EVP_PKEY_EC:
                                                 if (publicKey->pkey.ec)
                                                 {
@@ -1567,6 +1599,7 @@ int getCertificate(struct sslCheckOptions *options)
                                                     printf("    EC Public Key: NULL\n");
                                                 }
                                                 break;
+#endif // #ifdef EVP_PKEY_EC
                                             default:
                                                 printf("    Public Key: Unknown\n");
                                                 if (options->xmlOutput != 0)
@@ -1697,13 +1730,41 @@ int testHost(struct sslCheckOptions *options)
     struct sslCipher *sslCipherPointer;
     int status = true;
 
+#if defined (PLAT_WINDOWS)
+	WORD wVersionRequested;
+	WSADATA wsaData;
+	int err;
+	wVersionRequested = MAKEWORD( 1, 1 );
+	err = WSAStartup( wVersionRequested, &wsaData );
+#endif
+
     // Resolve Host Name
     options->hostStruct = gethostbyname(options->host);
+
+#if defined (PLAT_WINDOWS)
+	dwError = WSAGetLastError();
+	if (dwError != 0) {
+		if (dwError == WSAHOST_NOT_FOUND) {
+			//printf("Host not found\n");
+			printf("%sERROR: Could not resolve hostname %s: Host not found.%s\n", COL_RED, options->host, RESET);
+			return false;
+		} else if (dwError == WSANO_DATA) {
+			//printf("No data record found\n");
+			printf("%sERROR: Could not resolve hostname %s: No data record found.%s\n", COL_RED, options->host, RESET);
+			return false;
+		} else {
+			//printf("Function failed with error: %ld\n", dwError);
+			printf("%sERROR: Could not resolve hostname %s: Error(%ld).%s\n", COL_RED, options->host, dwError, RESET);
+			return false;
+		}
+	}
+#else
     if (options->hostStruct == NULL)
     {
         printf("%sERROR: Could not resolve hostname %s.%s\n", COL_RED, options->host, RESET);
         return false;
     }
+#endif
 
     // Configure Server Address and Port
     options->serverAddress.sin_family = options->hostStruct->h_addrtype;
@@ -1781,7 +1842,7 @@ int testHost(struct sslCheckOptions *options)
     if (status == true)
     {
         // Test preferred ciphers...
-        printf("\n  %sPrefered Server Cipher(s):%s\n", COL_BLUE, RESET);
+        printf("\n  %sPreferred Server Cipher(s):%s\n", COL_BLUE, RESET);
         if (options->pout == true)
             printf("|| Version || Bits || Cipher ||\n");
         switch (options->sslVersion)
