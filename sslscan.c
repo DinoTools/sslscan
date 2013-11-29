@@ -1075,6 +1075,7 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
                     }
                     if (options->xmlOutput != 0)
                         fprintf(options->xmlOutput, " sslversion=\"");
+#ifndef OPENSSL_NO_SSL2
                     if (sslCipherPointer->sslMethod == SSLv2_client_method())
                     {
                         if (options->xmlOutput != 0)
@@ -1085,6 +1086,9 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
                             printf("SSLv2  ");
                     }
                     else if (sslCipherPointer->sslMethod == SSLv3_client_method())
+#else
+                    if (sslCipherPointer->sslMethod == SSLv3_client_method())
+#endif
                     {
                         if (options->xmlOutput != 0)
                             fprintf(options->xmlOutput, "SSLv3\" bits=\"");
@@ -1102,7 +1106,7 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
                         else
                             printf("TLSv1  ");
                     }
-					else if (sslCipherPointer->sslMethod == TLSv1_1_client_method())
+                    else if (sslCipherPointer->sslMethod == TLSv1_1_client_method())
                     {
                         if (options->xmlOutput != 0)
                             fprintf(options->xmlOutput, "TLS11\" bits=\"");
@@ -1111,7 +1115,7 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
                         else
                             printf("TLS11  ");
                     }
-					else if (sslCipherPointer->sslMethod == TLSv1_2_client_method())
+                    else if (sslCipherPointer->sslMethod == TLSv1_2_client_method())
                     {
                         if (options->xmlOutput != 0)
                             fprintf(options->xmlOutput, "TLS12\" bits=\"");
@@ -1223,6 +1227,7 @@ int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMe
                         cipherStatus = SSL_connect(ssl);
                         if (cipherStatus == 1)
                         {
+#ifndef OPENSSL_NO_SSL2
                             if (sslMethod == SSLv2_client_method())
                             {
                                 if (options->xmlOutput != 0)
@@ -1233,6 +1238,9 @@ int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMe
                                     printf("    SSLv2  ");
                             }
                             else if (sslMethod == SSLv3_client_method())
+#else
+                            if (sslMethod == SSLv3_client_method())
+#endif
                             {
                                 if (options->xmlOutput != 0)
                                     fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"SSLv3\" bits=\"");
@@ -1907,18 +1915,25 @@ int testHost(struct sslCheckOptions *options)
         switch (options->sslVersion)
         {
             case ssl_all:
-                status = defaultCipher(options, SSLv2_client_method());
+                status = true;
+#ifndef OPENSSL_NO_SSL2
+                if (status != false)
+                    status = defaultCipher(options, SSLv2_client_method());
+#endif
                 if (status != false)
                     status = defaultCipher(options, SSLv3_client_method());
                 if (status != false)
                     status = defaultCipher(options, TLSv1_client_method());
-				if (status != false)
+                if (status != false)
                     status = defaultCipher(options, TLSv1_1_client_method());
-				if (status != false)
+                if (status != false)
                     status = defaultCipher(options, TLSv1_2_client_method());
                 break;
             case ssl_v2:
+#ifndef OPENSSL_NO_SSL2
+                // ToDo: Display error?
                 status = defaultCipher(options, SSLv2_client_method());
+#endif
                 break;
             case ssl_v3:
                 status = defaultCipher(options, SSLv3_client_method());
@@ -2246,15 +2261,19 @@ int main(int argc, char *argv[])
             switch (options.sslVersion)
             {
                 case ssl_all:
+#ifndef OPENSSL_NO_SSL2
                     populateCipherList(&options, SSLv2_client_method());
+#endif
                     populateCipherList(&options, SSLv3_client_method());
-					populateCipherList(&options, TLSv1_client_method());
-					populateCipherList(&options, TLSv1_1_client_method());
-					populateCipherList(&options, TLSv1_2_client_method());
+                    populateCipherList(&options, TLSv1_client_method());
+                    populateCipherList(&options, TLSv1_1_client_method());
+                    populateCipherList(&options, TLSv1_2_client_method());
                     break;
+#ifndef OPENSSL_NO_SSL2
                 case ssl_v2:
                     populateCipherList(&options, SSLv2_client_method());
                     break;
+#endif
                 case ssl_v3:
                     populateCipherList(&options, SSLv3_client_method());
                     break;
