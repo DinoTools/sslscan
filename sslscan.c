@@ -255,7 +255,7 @@ int fileExists(char *fileName)
 #if PLAT_WINDOWS
     return _access(fileName, 0) == 0;
 #else
-    return access(fileName, X_OK) == 0;
+    return access(fileName, R_OK) == 0;
 #endif
 }
 
