@@ -44,7 +44,7 @@
 #include <string.h>
 
 // http://msdn.microsoft.com/en-us/library/b0084kay.aspx
-#if defined(_WIN32) || defined(WIN32) || defined(__WIN32__) || defined(ming) 
+#if defined(_WIN32) || defined(WIN32) || defined(__WIN32__) || defined(ming)
 #define PLAT_WINDOWS 1
 #endif
 
@@ -98,7 +98,7 @@ DWORD dwError;
 #define ssl_v2 1
 #define ssl_v3 2
 #define tls_v1 3
-#define tls_v11 4 
+#define tls_v11 4
 #define tls_v12 5
 
 // Global comments:
@@ -253,7 +253,7 @@ int populateCipherList(struct sslCheckOptions *options, const SSL_METHOD *sslMet
 int fileExists(char *fileName)
 {
 #if PLAT_WINDOWS
-	return _access(fileName, 0) == 0;
+    return _access(fileName, 0) == 0;
 #else
     return access(fileName, X_OK) == 0;
 #endif
@@ -1475,76 +1475,76 @@ int getCertificate(struct sslCheckOptions *options)
                                 }
 
                                 // Cert Serial No. - Code adapted from OpenSSL's crypto/asn1/t_x509.c
-				if (!(X509_FLAG_COMPAT & X509_FLAG_NO_SERIAL))
-				{
-					ASN1_INTEGER *bs;
-					BIO *bp;
-					BIO *xml_bp;
-					bp = BIO_new_fp(stdout, BIO_NOCLOSE);
-					if (options->xmlOutput != 0)
-						xml_bp = BIO_new_fp(options->xmlOutput, BIO_NOCLOSE);
-					long l;
-					int i;
-					const char *neg;
-					bs=X509_get_serialNumber(x509Cert);
+                                if (!(X509_FLAG_COMPAT & X509_FLAG_NO_SERIAL))
+                                {
+                                    ASN1_INTEGER *bs;
+                                    BIO *bp;
+                                    BIO *xml_bp;
+                                    bp = BIO_new_fp(stdout, BIO_NOCLOSE);
+                                    if (options->xmlOutput != 0)
+                                        xml_bp = BIO_new_fp(options->xmlOutput, BIO_NOCLOSE);
+                                    long l;
+                                    int i;
+                                    const char *neg;
+                                    bs=X509_get_serialNumber(x509Cert);
 
-					if (BIO_write(bp,"    Serial Number:",18) <= 0)
-						return(1);
+                                    if (BIO_write(bp,"    Serial Number:",18) <= 0)
+                                        return(1);
 
-					if (bs->length <= 4)
-					{
-						l=ASN1_INTEGER_get(bs);
-						if (l < 0)
-						{
-							l= -l;
-							neg="-";
-						}
-						else
-							neg="";
-						if (BIO_printf(bp," %s%lu (%s0x%lx)\n",neg,l,neg,l) <= 0)
-							return(1);
-						if (options->xmlOutput != 0)
-							if (BIO_printf(xml_bp,"   <serial>%s%lu (%s0x%lx)</serial>\n",neg,l,neg,l) <= 0)
-								return(1);
-					}
-					else
-					{
-						neg=(bs->type == V_ASN1_NEG_INTEGER)?" (Negative)":"";
-						if (BIO_printf(bp,"%1s%s","",neg) <= 0)
-							return(1);
+                                    if (bs->length <= 4)
+                                    {
+                                        l=ASN1_INTEGER_get(bs);
+                                        if (l < 0)
+                                        {
+                                            l= -l;
+                                            neg="-";
+                                        }
+                                        else
+                                            neg="";
+                                        if (BIO_printf(bp," %s%lu (%s0x%lx)\n",neg,l,neg,l) <= 0)
+                                            return(1);
+                                        if (options->xmlOutput != 0)
+                                            if (BIO_printf(xml_bp,"   <serial>%s%lu (%s0x%lx)</serial>\n",neg,l,neg,l) <= 0)
+                                                return(1);
+                                    }
+                                    else
+                                    {
+                                        neg=(bs->type == V_ASN1_NEG_INTEGER)?" (Negative)":"";
+                                        if (BIO_printf(bp,"%1s%s","",neg) <= 0)
+                                            return(1);
 
-						if (options->xmlOutput != 0)
-							if (BIO_printf(xml_bp,"   <serial>") <= 0)
-								return(1);
+                                        if (options->xmlOutput != 0)
+                                            if (BIO_printf(xml_bp,"   <serial>") <= 0)
+                                                return(1);
 
-						for (i=0; i<bs->length; i++)
-						{
-							if (BIO_printf(bp,"%02x%c",bs->data[i],
-										((i+1 == bs->length)?'\n':':')) <= 0)
-								return(1);
-							if (options->xmlOutput != 0) {
-								if (i+1 == bs->length)
-								{
-									if (BIO_printf(xml_bp,"%02x",bs->data[i]) <= 0)
-										return(1);
-								}
-								else
-								{
-									if (BIO_printf(xml_bp,"%02x%c",bs->data[i], ':') <= 0)
-										return(1);
-								}
-							}
-						}
+                                        for (i=0; i<bs->length; i++)
+                                        {
+                                            if (BIO_printf(bp,"%02x%c",bs->data[i],
+                                                        ((i+1 == bs->length)?'\n':':')) <= 0)
+                                                return(1);
+                                            if (options->xmlOutput != 0) {
+                                                if (i+1 == bs->length)
+                                                {
+                                                    if (BIO_printf(xml_bp,"%02x",bs->data[i]) <= 0)
+                                                        return(1);
+                                                }
+                                                else
+                                                {
+                                                    if (BIO_printf(xml_bp,"%02x%c",bs->data[i], ':') <= 0)
+                                                        return(1);
+                                                }
+                                            }
+                                        }
 
-						if (options->xmlOutput != 0)
-							if (BIO_printf(xml_bp,"</serial>\n") <= 0)
-								return(1);
+                                        if (options->xmlOutput != 0)
+                                            if (BIO_printf(xml_bp,"</serial>\n") <= 0)
+                                                return(1);
 
-					}
-					if(NULL != bp)
-						BIO_free(bp);
-					// We don't free the xml_bp because it will be used in the future
-				}
+                                    }
+                                    if(NULL != bp)
+                                        BIO_free(bp);
+                                    // We don't free the xml_bp because it will be used in the future
+                                }
 
                                 // Signature Algo...
                                 if (!(X509_FLAG_COMPAT & X509_FLAG_NO_SIGNAME))
@@ -1813,33 +1813,33 @@ int testHost(struct sslCheckOptions *options)
     int status = true;
 
 #if defined (PLAT_WINDOWS)
-	WORD wVersionRequested;
-	WSADATA wsaData;
-	int err;
-	wVersionRequested = MAKEWORD( 1, 1 );
-	err = WSAStartup( wVersionRequested, &wsaData );
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    int err;
+    wVersionRequested = MAKEWORD( 1, 1 );
+    err = WSAStartup( wVersionRequested, &wsaData );
 #endif
 
     // Resolve Host Name
     options->hostStruct = gethostbyname(options->host);
 
 #if defined (PLAT_WINDOWS)
-	dwError = WSAGetLastError();
-	if (dwError != 0) {
-		if (dwError == WSAHOST_NOT_FOUND) {
-			//printf("Host not found\n");
-			printf("%sERROR: Could not resolve hostname %s: Host not found.%s\n", COL_RED, options->host, RESET);
-			return false;
-		} else if (dwError == WSANO_DATA) {
-			//printf("No data record found\n");
-			printf("%sERROR: Could not resolve hostname %s: No data record found.%s\n", COL_RED, options->host, RESET);
-			return false;
-		} else {
-			//printf("Function failed with error: %ld\n", dwError);
-			printf("%sERROR: Could not resolve hostname %s: Error(%ld).%s\n", COL_RED, options->host, dwError, RESET);
-			return false;
-		}
-	}
+    dwError = WSAGetLastError();
+    if (dwError != 0) {
+        if (dwError == WSAHOST_NOT_FOUND) {
+            //printf("Host not found\n");
+            printf("%sERROR: Could not resolve hostname %s: Host not found.%s\n", COL_RED, options->host, RESET);
+            return false;
+        } else if (dwError == WSANO_DATA) {
+            //printf("No data record found\n");
+            printf("%sERROR: Could not resolve hostname %s: No data record found.%s\n", COL_RED, options->host, RESET);
+            return false;
+        } else {
+            //printf("Function failed with error: %ld\n", dwError);
+            printf("%sERROR: Could not resolve hostname %s: Error(%ld).%s\n", COL_RED, options->host, dwError, RESET);
+            return false;
+        }
+    }
 #else
     if (options->hostStruct == NULL)
     {
@@ -2147,13 +2147,13 @@ int main(int argc, char *argv[])
         // TLS v1 only...
         else if (strcmp("--tls1", argv[argLoop]) == 0)
             options.sslVersion = tls_v1;
-			
+
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
         // TLS v11 only...
         else if (strcmp("--tls11", argv[argLoop]) == 0)
             options.sslVersion = tls_v11;
 
-		// TLS v12 only...
+        // TLS v12 only...
         else if (strcmp("--tls12", argv[argLoop]) == 0)
             options.sslVersion = tls_v12;
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
@@ -2251,7 +2251,7 @@ int main(int argc, char *argv[])
             printf("  %s--tls1%s               Only check TLSv1 ciphers.\n", COL_GREEN, RESET);
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
             printf("  %s--tls11%s              Only check TLSv11 ciphers.\n", COL_GREEN, RESET);
-            printf("  %s--tls12%s              Only check TLSv12 ciphers.\n", COL_GREEN, RESET);			
+            printf("  %s--tls12%s              Only check TLSv12 ciphers.\n", COL_GREEN, RESET);
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
             printf("  %s--pk=<file>%s          A file containing the private key or\n", COL_GREEN, RESET);
             printf("                       a PKCS#12  file containing a private\n");
