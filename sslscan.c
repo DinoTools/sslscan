@@ -32,6 +32,14 @@
  *   files in the program, then also delete it here.                       *
  ***************************************************************************/
 
+/*
+ * OpenSSL features: http://www.openssl.org/news/changelog.html
+ *
+ * Initial TLS 1.1 and 1.2 support
+ * - 1.0.0h -> 1000008fL
+ * - 1.0.1  -> 1000100fL
+ */
+
 // Includes...
 #include <string.h>
 
@@ -1106,6 +1114,7 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
                         else
                             printf("TLSv1  ");
                     }
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
                     else if (sslCipherPointer->sslMethod == TLSv1_1_client_method())
                     {
                         if (options->xmlOutput != 0)
@@ -1124,6 +1133,8 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
                         else
                             printf("TLS12  ");
                     }
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
                     if (sslCipherPointer->bits < 10)
                         tempInt = 2;
                     else if (sslCipherPointer->bits < 100)
@@ -1258,7 +1269,8 @@ int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMe
                                 else
                                     printf("    TLSv1  ");
                             }
-							else if (sslMethod == TLSv1_1_client_method())
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+                            else if (sslMethod == TLSv1_1_client_method())
                             {
                                 if (options->xmlOutput != 0)
                                     fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLS11\" bits=\"");
@@ -1276,6 +1288,8 @@ int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMe
                                 else
                                     printf("    TLS12  ");
                             }
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
                             if (SSL_get_cipher_bits(ssl, &tempInt2) < 10)
                                 tempInt = 2;
                             else if (SSL_get_cipher_bits(ssl, &tempInt2) < 100)
@@ -1647,7 +1661,8 @@ int getCertificate(struct sslCheckOptions *options)
                                                     printf("    DSA Public Key: NULL\n");
                                                 }
                                                 break;
-#ifdef EVP_PKEY_EC
+// EC_KEY_print() is only available if OPENSSL_NO_EC and OPENSSL_NO_BIO are defined
+#if defined(EVP_PKEY_EC) && !defined(OPENSSL_NO_BIO) && !defined(OPENSSL_NO_EC)
                                             case EVP_PKEY_EC:
                                                 if (publicKey->pkey.ec)
                                                 {
@@ -1666,7 +1681,7 @@ int getCertificate(struct sslCheckOptions *options)
                                                     printf("    EC Public Key: NULL\n");
                                                 }
                                                 break;
-#endif // #ifdef EVP_PKEY_EC
+#endif // #if defined(EVP_PKEY_EC) && !defined(OPENSSL_NO_BIO)
                                             default:
                                                 printf("    Public Key: Unknown\n");
                                                 if (options->xmlOutput != 0)
@@ -1924,10 +1939,14 @@ int testHost(struct sslCheckOptions *options)
                     status = defaultCipher(options, SSLv3_client_method());
                 if (status != false)
                     status = defaultCipher(options, TLSv1_client_method());
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
                 if (status != false)
                     status = defaultCipher(options, TLSv1_1_client_method());
                 if (status != false)
                     status = defaultCipher(options, TLSv1_2_client_method());
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
                 break;
             case ssl_v2:
 #ifndef OPENSSL_NO_SSL2
@@ -1941,12 +1960,16 @@ int testHost(struct sslCheckOptions *options)
             case tls_v1:
                 status = defaultCipher(options, TLSv1_client_method());
                 break;
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
             case tls_v11:
                 status = defaultCipher(options, TLSv1_1_client_method());
                 break;
             case tls_v12:
                 status = defaultCipher(options, TLSv1_2_client_method());
                 break;
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
         }
     }
 
@@ -2111,9 +2134,11 @@ int main(int argc, char *argv[])
             options.starttls_xmpp = true;
         }
 
+#ifndef OPENSSL_NO_SSL2
         // SSL v2 only...
         else if (strcmp("--ssl2", argv[argLoop]) == 0)
             options.sslVersion = ssl_v2;
+#endif // #ifndef OPENSSL_NO_SSL2
 
         // SSL v3 only...
         else if (strcmp("--ssl3", argv[argLoop]) == 0)
@@ -2123,6 +2148,7 @@ int main(int argc, char *argv[])
         else if (strcmp("--tls1", argv[argLoop]) == 0)
             options.sslVersion = tls_v1;
 			
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
         // TLS v11 only...
         else if (strcmp("--tls11", argv[argLoop]) == 0)
             options.sslVersion = tls_v11;
@@ -2130,6 +2156,7 @@ int main(int argc, char *argv[])
 		// TLS v12 only...
         else if (strcmp("--tls12", argv[argLoop]) == 0)
             options.sslVersion = tls_v12;
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
         // SSL Bugs...
         else if (strcmp("--bugs", argv[argLoop]) == 0)
@@ -2217,11 +2244,15 @@ int main(int argc, char *argv[])
             printf("  %s--localip=<ip>%s       Local IP from which connection should be made\n", COL_GREEN, RESET);
             printf("  %s--no-failed%s          List only accepted ciphers  (default\n", COL_GREEN, RESET);
             printf("                       is to listing all ciphers).\n");
+#ifndef OPENSSL_NO_SSL2
             printf("  %s--ssl2%s               Only check SSLv2 ciphers.\n", COL_GREEN, RESET);
+#endif // #ifndef OPENSSL_NO_SSL2
             printf("  %s--ssl3%s               Only check SSLv3 ciphers.\n", COL_GREEN, RESET);
             printf("  %s--tls1%s               Only check TLSv1 ciphers.\n", COL_GREEN, RESET);
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
             printf("  %s--tls11%s              Only check TLSv11 ciphers.\n", COL_GREEN, RESET);
             printf("  %s--tls12%s              Only check TLSv12 ciphers.\n", COL_GREEN, RESET);			
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
             printf("  %s--pk=<file>%s          A file containing the private key or\n", COL_GREEN, RESET);
             printf("                       a PKCS#12  file containing a private\n");
             printf("                       key/certificate pair (as produced by\n");
@@ -2261,13 +2292,19 @@ int main(int argc, char *argv[])
             switch (options.sslVersion)
             {
                 case ssl_all:
+
 #ifndef OPENSSL_NO_SSL2
                     populateCipherList(&options, SSLv2_client_method());
 #endif
+
                     populateCipherList(&options, SSLv3_client_method());
                     populateCipherList(&options, TLSv1_client_method());
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
                     populateCipherList(&options, TLSv1_1_client_method());
                     populateCipherList(&options, TLSv1_2_client_method());
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
                     break;
 #ifndef OPENSSL_NO_SSL2
                 case ssl_v2:
@@ -2280,12 +2317,16 @@ int main(int argc, char *argv[])
                 case tls_v1:
                     populateCipherList(&options, TLSv1_client_method());
                     break;
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
                 case tls_v11:
                     populateCipherList(&options, TLSv1_1_client_method());
                     break;
                 case tls_v12:
                     populateCipherList(&options, TLSv1_2_client_method());
-                    break;					
+                    break;
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
             }
 
             // Do the testing...
