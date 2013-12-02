@@ -2,13 +2,14 @@ Changelog
 =========
 
 Version: 1.10.0
-Date   : xx/xx/201x
+Date   : 03/12/2013
 Author : xxx
 Changes: The following are a list of changes
          > Fixing XML output (tecknicaltom)
          > Win32 support (not complete) (mboman)
          > TLS 1.1 and TLS 1.2 ciphersuites (twwbond)
          > Perform scan from selected local IP (flowher)
+         > Fixing bug: targets file not found
 
 Version: 1.9.0
 Date   : 26/11/2013
