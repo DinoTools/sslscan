@@ -156,6 +156,7 @@ struct sslCheckOptions
     int starttls_pop3;
     int starttls_smtp;
     int starttls_xmpp;
+    char *xmpp_domain;
     int sslVersion;
     int targets;
     int pout;
@@ -388,16 +389,16 @@ int tcpConnect(struct sslCheckOptions *options)
 
         /* This is so ghetto, you cannot release it! */
         char xmpp_setup[1024]; // options->host is 512 bytes long
-        /* XXX: TODO - options->host isn't always the host you want to test
-           eg:
-           talk.google.com actually expects gmail.com, not talk.google.com
-           jabber.ccc.de expects jabber.ccc.de
+        char xmpp_to[512];
+        // use hostname if not defined explicitly
+        if( options->xmpp_domain == 0) {
+            strncpy(xmpp_to, options->host, sizeof(xmpp_to));
+        } else {
+            strncpy(xmpp_to, options->xmpp_domain, sizeof(xmpp_to));
+        }
 
-           It may be useful to provide a commandline switch to provide the
-           expected hostname.
-        */
         if (snprintf(xmpp_setup, sizeof(xmpp_setup), "<?xml version='1.0' ?>\r\n"
-               "<stream:stream xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client' to='%s' version='1.0'>\r\n", options->host) >= sizeof(xmpp_setup)) {
+               "<stream:stream xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client' to='%s' version='1.0'>\r\n", xmpp_to) >= sizeof(xmpp_setup)) {
             printf("(internal error: xmpp_setup buffer too small)\n");
             abort();
         }
@@ -2133,6 +2134,11 @@ int main(int argc, char *argv[])
             options.sslVersion = tls_v1;
             options.starttls_xmpp = true;
         }
+        // XMPP... Domain
+        else if (strncmp("--xmpp-domain=", argv[argLoop], 14) == 0)
+        {
+            options.xmpp_domain = argv[argLoop] +14;
+        }
 
 #ifndef OPENSSL_NO_SSL2
         // SSL v2 only...
@@ -2267,6 +2273,7 @@ int main(int argc, char *argv[])
             printf("  %s--starttls-pop3%s      STARTTLS setup for POP3\n", COL_GREEN, RESET);
             printf("  %s--starttls-smtp%s      STARTTLS setup for SMTP\n", COL_GREEN, RESET);
             printf("  %s--starttls-xmpp%s      STARTTLS setup for XMPP\n", COL_GREEN, RESET);
+            printf("  %s--xmpp-domain=<domain>%s Specify this if the XMPP domain is different from the hostname\n", COL_GREEN, RESET);
             printf("  %s--http%s               Test a HTTP connection.\n", COL_GREEN, RESET);
             printf("  %s--bugs%s               Enable SSL implementation  bug work-\n", COL_GREEN, RESET);
             printf("                       arounds.\n");
