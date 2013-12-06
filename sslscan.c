@@ -147,7 +147,7 @@ struct sslCheckOptions
 {
     // Program Options...
     char host[512];
-    int port;
+    char service[128];
     unsigned char localip[4];
     int noFailed;
     int reneg;
@@ -168,8 +168,8 @@ struct sslCheckOptions
     FILE *xmlOutput;
 
     // TCP Connection Variables...
-    struct hostent *hostStruct;
-    struct sockaddr_in serverAddress;
+    struct addrinfo *addrList; // list of addresses found
+    struct addrinfo *addrSelected; // address used
 
     // SSL Variables...
     SSL_CTX *ctx;
@@ -290,11 +290,11 @@ int readOrLogAndClose(int fd, void* buffer, size_t len, const struct sslCheckOpt
     n = recv(fd, buffer, len - 1, 0);
 
     if (n < 0) {
-        printf("%s    ERROR: error reading from %s:%d: %s%s\n", COL_RED, options->host, options->port, strerror(errno), RESET);
+        printf("%s    ERROR: error reading from %s:%s: %s%s\n", COL_RED, options->host, options->service, strerror(errno), RESET);
         close(fd);
         return 0;
     } else if (n == 0) {
-        printf("%s    ERROR: unexpected EOF reading from %s:%d%s\n", COL_RED, options->host, options->port, RESET);
+        printf("%s    ERROR: unexpected EOF reading from %s:%s%s\n", COL_RED, options->host, options->service, RESET);
         close(fd);
         return 0;
     } else {
@@ -314,41 +314,70 @@ int tcpConnect(struct sslCheckOptions *options)
     char buffer[BUFFERSIZE];
     int status;
 
-    // Create Socket
-    socketDescriptor = socket(AF_INET, SOCK_STREAM, 0);
-    if(socketDescriptor < 0)
-    {
-        printf("%s    ERROR: Could not open a socket.%s\n", COL_RED, RESET);
-        return 0;
-    }
+    struct addrinfo *p = options->addrList;
+    if(options->addrSelected != NULL)
+        p = options->addrSelected;
 
-    // bind to local ip if requested
-    if( options->localip[0]!= 0 )
-    {
-        struct sockaddr_in me;
-        unsigned long addr;
-        memset((char*)&me,0,sizeof(me));
-        me.sin_family = AF_INET;
-        addr = (unsigned long)
-            ((unsigned long)options->localip[0]<<24L) |
-            ((unsigned long)options->localip[1]<<16L) |
-            ((unsigned long)options->localip[2]<< 8L) |
-            ((unsigned long)options->localip[3]);
-        me.sin_addr.s_addr = htonl(addr);
-        if( bind(socketDescriptor,(struct sockaddr *)&me,sizeof(me)) == -1 )
+    for(; p != NULL; p = p->ai_next) {
+        // Create Socket
+        if ((socketDescriptor = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
         {
-            printf("%s    ERROR: Could not bind to local interface: %s.%s\n",COL_RED, "OZAPTF", RESET);
+            printf("%s    ERROR: Could not open a socket.%s\n", COL_RED, RESET);
+            if(options->addrSelected == NULL)
+                continue;
+            printf("Exit\n");
             return 0;
         }
-    }
 
-    // Connect
-    status = connect(socketDescriptor, (struct sockaddr *) &options->serverAddress, sizeof(options->serverAddress));
-    if(status < 0)
+        // bind to local ip if requested
+        /** ToDo:
+        if( options->localip[0]!= 0 )
+        {
+            // ToDo: does not work with ipv6
+            struct sockaddr_in me;
+            unsigned long addr;
+            memset((char*)&me,0,sizeof(me));
+            me.sin_family = AF_INET;
+            addr = (unsigned long)
+                ((unsigned long)options->localip[0]<<24L) |
+                ((unsigned long)options->localip[1]<<16L) |
+                ((unsigned long)options->localip[2]<< 8L) |
+                ((unsigned long)options->localip[3]);
+            me.sin_addr.s_addr = htonl(addr);
+            if( bind(socketDescriptor,(struct sockaddr *)&me,sizeof(me)) == -1 )
+            {
+                printf("%s    ERROR: Could not bind to local interface: %s.%s\n",COL_RED, "OZAPTF", RESET);
+                return 0;
+            }
+        }
+        */
+
+        /*struct sockaddr_in* saddr = (struct sockaddr_in*)p->ai_addr;
+        printf("hostname: %s\n", inet_ntoa(saddr->sin_addr));
+        printf("port %d\n", (int)saddr->sin_port);*/
+        // Connect
+        if(( status = connect(socketDescriptor, p->ai_addr, p->ai_addrlen)) == -1) {
+            close(socketDescriptor);
+            perror("connect");
+            if(options->addrSelected == NULL)
+                continue;
+            printf("Exit\n");
+            return 0;
+        }
+        break;
+    }
+    if (p == NULL)
     {
-        printf("%s    ERROR: Could not open a connection to host %s on port %d.%s\n", COL_RED, options->host, options->port, RESET);
+        printf("failed to connect\n");
         return 0;
     }
+    options->addrSelected = p;
+/*
+    if(status < 0)
+    {
+        printf("%s    ERROR: Could not open a connection to host %s on port %d.%s\n", COL_RED, options->host, options->service, RESET);
+        return 0;
+    }*/
 
     // If STARTTLS is required...
     if (options->starttls_smtp == true && tlsStarted == false)
@@ -360,7 +389,7 @@ int tcpConnect(struct sslCheckOptions *options)
         if (strncmp(buffer, "220", 3) != 0)
         {
             close(socketDescriptor);
-            printf("%s    ERROR: The host %s on port %d did not appear to be an SMTP service.%s\n", COL_RED, options->host, options->port, RESET);
+            printf("%s    ERROR: The host %s on port %s did not appear to be an SMTP service.%s\n", COL_RED, options->host, options->service, RESET);
             return 0;
         }
         send(socketDescriptor, "EHLO titania.co.uk\r\n", 20, 0);
@@ -369,7 +398,7 @@ int tcpConnect(struct sslCheckOptions *options)
         if (strncmp(buffer, "250", 3) != 0)
         {
             close(socketDescriptor);
-            printf("%s    ERROR: The SMTP service on %s port %d did not respond with status 250 to our HELO.%s\n", COL_RED, options->host, options->port, RESET);
+            printf("%s    ERROR: The SMTP service on %s port %s did not respond with status 250 to our HELO.%s\n", COL_RED, options->host, options->service, RESET);
             return 0;
         }
         send(socketDescriptor, "STARTTLS\r\n", 10, 0);
@@ -378,7 +407,7 @@ int tcpConnect(struct sslCheckOptions *options)
         if (strncmp(buffer, "220", 3) != 0)
         {
             close(socketDescriptor);
-            printf("%s    ERROR: The SMTP service on %s port %d did not appear to support STARTTLS.%s\n", COL_RED, options->host, options->port, RESET);
+            printf("%s    ERROR: The SMTP service on %s port %s did not appear to support STARTTLS.%s\n", COL_RED, options->host, options->service, RESET);
             return 0;
         }
     }
@@ -1813,53 +1842,38 @@ int testHost(struct sslCheckOptions *options)
     struct sslCipher *sslCipherPointer;
     int status = true;
 
-#if defined (PLAT_WINDOWS)
-    WORD wVersionRequested;
-    WSADATA wsaData;
-    int err;
-    wVersionRequested = MAKEWORD( 1, 1 );
-    err = WSAStartup( wVersionRequested, &wsaData );
-#endif
-
+    // Reset address selection
+    options->addrSelected = NULL;
     // Resolve Host Name
-    options->hostStruct = gethostbyname(options->host);
 
-#if defined (PLAT_WINDOWS)
-    dwError = WSAGetLastError();
-    if (dwError != 0) {
-        if (dwError == WSAHOST_NOT_FOUND) {
-            //printf("Host not found\n");
-            printf("%sERROR: Could not resolve hostname %s: Host not found.%s\n", COL_RED, options->host, RESET);
-            return false;
-        } else if (dwError == WSANO_DATA) {
-            //printf("No data record found\n");
-            printf("%sERROR: Could not resolve hostname %s: No data record found.%s\n", COL_RED, options->host, RESET);
-            return false;
-        } else {
-            //printf("Function failed with error: %ld\n", dwError);
-            printf("%sERROR: Could not resolve hostname %s: Error(%ld).%s\n", COL_RED, options->host, dwError, RESET);
-            return false;
-        }
-    }
-#else
-    if (options->hostStruct == NULL)
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC; // use AF_INET6 to force IPv6
+    hints.ai_socktype = SOCK_STREAM;
+
+    int status_; // ToDo: clean up
+    status_ = getaddrinfo(options->host, options->service, &hints, &options->addrList);
+
+    if (status_ != 0)
     {
-        printf("%sERROR: Could not resolve hostname %s.%s\n", COL_RED, options->host, RESET);
+        if (status_ == EAI_SYSTEM)
+        {
+            perror("getaddrinfo");
+        }
+        else
+        {
+            fprintf(stderr, "error in getaddrinfo: %s\n", gai_strerror(status));
+        }
+        //printf("%sERROR: Could not resolve hostname %s.%s\n", COL_RED, options->host, RESET);
         return false;
     }
-#endif
-
-    // Configure Server Address and Port
-    options->serverAddress.sin_family = options->hostStruct->h_addrtype;
-    memcpy((char *) &options->serverAddress.sin_addr.s_addr, options->hostStruct->h_addr_list[0], options->hostStruct->h_length);
-    options->serverAddress.sin_port = htons(options->port);
 
     // XML Output...
     if (options->xmlOutput != 0)
-        fprintf(options->xmlOutput, " <ssltest host=\"%s\" port=\"%d\">\n", options->host, options->port);
+        fprintf(options->xmlOutput, " <ssltest host=\"%s\" port=\"%s\">\n", options->host, options->service);
 
     // Test renegotiation
-    printf("\n%sTesting SSL server %s on port %d%s\n\n", COL_GREEN, options->host, options->port, RESET);
+    printf("\n%sTesting SSL server %s on port %s%s\n\n", COL_GREEN, options->host, options->service, RESET);
 
     sslCipherPointer = options->ciphers;
     printf("  %sSupported Client Cipher(s):%s\n", COL_BLUE, RESET);
@@ -2025,7 +2039,7 @@ int main(int argc, char *argv[])
 
     // Init...
     memset(&options, 0, sizeof(struct sslCheckOptions));
-    options.port = 0;
+    // ToDo: service options.port = 0;
     xmlArg = 0;
     strcpy(options.host, "127.0.0.1");
     options.localip[0] = options.localip[1] = options.localip[2] = options.localip[3] = 0;
@@ -2185,24 +2199,22 @@ int main(int argc, char *argv[])
             argv[argLoop][tempInt] = 0;
             strncpy(options.host, argv[argLoop], sizeof(options.host) -1);
 
-            // Get port (if it exists)...
+            // Get service (if it exists)...
             tempInt++;
             if (tempInt < maxSize)
-                options.port = atoi(argv[argLoop] + tempInt);
-            else if (options.port == 0) {
-                if (options.starttls_ftp)
-                    options.port = 21;
-                if (options.starttls_imap)
-                    options.port = 143;
-                if (options.starttls_pop3)
-                    options.port = 110;
-                if (options.starttls_smtp)
-                    options.port = 25;
-                if (options.starttls_xmpp)
-                    options.port = 5222;
-                if (options.port == 0)
-                    options.port = 443;
-            }
+                strncpy(options.service, argv[argLoop] + tempInt, sizeof(options.service) - 1);
+            else if (options.starttls_ftp)
+                strcpy(options.service, "21");
+            else if (options.starttls_smtp)
+                strcpy(options.service, "25");
+            else if (options.starttls_pop3)
+                strcpy(options.service, "110");
+            else if (options.starttls_imap)
+                strcpy(options.service, "143");
+            else if (options.starttls_xmpp)
+                strcpy(options.service, "5222");
+            else
+                strcpy(options.service, "443");
         }
 
         // Not too sure what the user is doing...
@@ -2368,7 +2380,7 @@ int main(int argc, char *argv[])
                                 // Get port (if it exists)...
                                 tempInt++;
                                 if (strlen(line + tempInt) > 0)
-                                    options.port = atoi(line + tempInt);
+                                    strncpy(options.service, line + tempInt, sizeof(options.service));
 
                                 // Test the host...
                                 status = testHost(&options);
