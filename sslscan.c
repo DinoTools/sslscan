@@ -101,6 +101,11 @@ DWORD dwError;
 #define tls_v11 4
 #define tls_v12 5
 
+// force address family
+#define FORCE_AF_UNSPEC 0
+#define FORCE_AF_INET4 1
+#define FORCE_AF_INET6 2
+
 // Global comments:
 // The comment style:
 //   // Call foo()
@@ -150,6 +155,7 @@ struct sslCheckOptions
     char service[128];
     char localAddress[512];
     int bindLocalAddress;
+    int forceAddressFamily;
     int noFailed;
     int reneg;
     int starttls_ftp;
@@ -1858,7 +1864,12 @@ int testHost(struct sslCheckOptions *options)
 
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC; // use AF_INET6 to force IPv6
+    hints.ai_family = AF_UNSPEC;
+    if (options->forceAddressFamily == FORCE_AF_INET4)
+        hints.ai_family = AF_INET;
+    else if (options->forceAddressFamily == FORCE_AF_INET6)
+        hints.ai_family = AF_INET6;
+
     hints.ai_socktype = SOCK_STREAM;
 
     int status_; // ToDo: clean up
@@ -1881,6 +1892,10 @@ int testHost(struct sslCheckOptions *options)
     // find local address
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;
+    if (options->forceAddressFamily == FORCE_AF_INET4)
+        hints.ai_family = AF_INET;
+    else if (options->forceAddressFamily == FORCE_AF_INET6)
+        hints.ai_family = AF_INET6;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
@@ -2062,6 +2077,7 @@ int main(int argc, char *argv[])
     xmlArg = 0;
     strcpy(options.host, "127.0.0.1");
     options.bindLocalAddress = false;
+    options.forceAddressFamily = FORCE_AF_UNSPEC;
     options.noFailed = false;
     options.reneg = false;
     options.starttls_ftp = false;
@@ -2088,6 +2104,13 @@ int main(int argc, char *argv[])
             mode = mode_multiple;
             options.targets = argLoop;
         }
+
+        // force IPv4 or IPv6
+        else if ((strcmp("--ipv4", argv[argLoop]) == 0))
+            options.forceAddressFamily = FORCE_AF_INET4;
+
+        else if ((strcmp("--ipv6", argv[argLoop]) == 0))
+            options.forceAddressFamily = FORCE_AF_INET6;
 
         // localip
         else if ((strncmp("--localip=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10))
@@ -2275,6 +2298,8 @@ int main(int argc, char *argv[])
             printf("  %s--targets=<file>%s     A file containing a list of hosts to\n", COL_GREEN, RESET);
             printf("                       check.  Hosts can  be supplied  with\n");
             printf("                       ports (i.e. host:port).\n");
+            printf("  %s--ipv4%s               Force IPv4\n", COL_GREEN, RESET);
+            printf("  %s--ipv6%s               Force IPv6\n", COL_GREEN, RESET);
             printf("  %s--localip=<ip>%s       Local IP from which connection should be made\n", COL_GREEN, RESET);
             printf("  %s--no-failed%s          List only accepted ciphers  (default\n", COL_GREEN, RESET);
             printf("                       is to listing all ciphers).\n");
