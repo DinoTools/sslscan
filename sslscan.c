@@ -148,7 +148,8 @@ struct sslCheckOptions
     // Program Options...
     char host[512];
     char service[128];
-    unsigned char localip[4];
+    char localAddress[512];
+    int bindLocalAddress;
     int noFailed;
     int reneg;
     int starttls_ftp;
@@ -170,6 +171,8 @@ struct sslCheckOptions
     // TCP Connection Variables...
     struct addrinfo *addrList; // list of addresses found
     struct addrinfo *addrSelected; // address used
+    struct addrinfo *localAddrList;
+    struct addrinfo *localAddrSelected;
 
     // SSL Variables...
     SSL_CTX *ctx;
@@ -314,6 +317,7 @@ int tcpConnect(struct sslCheckOptions *options)
     char buffer[BUFFERSIZE];
     int status;
 
+    struct addrinfo *bindAddress;
     struct addrinfo *p = options->addrList;
     if(options->addrSelected != NULL)
         p = options->addrSelected;
@@ -330,27 +334,33 @@ int tcpConnect(struct sslCheckOptions *options)
         }
 
         // bind to local ip if requested
-        /** ToDo:
-        if( options->localip[0]!= 0 )
+        if( options->bindLocalAddress == true )
         {
-            // ToDo: does not work with ipv6
-            struct sockaddr_in me;
-            unsigned long addr;
-            memset((char*)&me,0,sizeof(me));
-            me.sin_family = AF_INET;
-            addr = (unsigned long)
-                ((unsigned long)options->localip[0]<<24L) |
-                ((unsigned long)options->localip[1]<<16L) |
-                ((unsigned long)options->localip[2]<< 8L) |
-                ((unsigned long)options->localip[3]);
-            me.sin_addr.s_addr = htonl(addr);
-            if( bind(socketDescriptor,(struct sockaddr *)&me,sizeof(me)) == -1 )
+            bindAddress = options->localAddrList;
+            if(options->localAddrSelected != NULL)
+                bindAddress = options->localAddrSelected;
+
+            for(; bindAddress != NULL; bindAddress = bindAddress->ai_next)
             {
-                printf("%s    ERROR: Could not bind to local interface: %s.%s\n",COL_RED, "OZAPTF", RESET);
+                if(bindAddress->ai_family != p->ai_family)
+                    continue;
+
+                if(bind(socketDescriptor, bindAddress->ai_addr, bindAddress->ai_addrlen) == -1)
+                {
+                    if(options->localAddrSelected == NULL)
+                        continue;
+                    printf("%s    ERROR: Could not rebind to previously selected local interface.%s\n",COL_RED, RESET);
+                    return 0;
+                }
+                break;
+            }
+            if(bindAddress == NULL)
+            {
+                printf("%s    ERROR: Could not bind to local interface.%s\n",COL_RED, RESET);
                 return 0;
             }
+            options->localAddrSelected = bindAddress;
         }
-        */
 
         /*struct sockaddr_in* saddr = (struct sockaddr_in*)p->ai_addr;
         printf("hostname: %s\n", inet_ntoa(saddr->sin_addr));
@@ -1868,6 +1878,15 @@ int testHost(struct sslCheckOptions *options)
         return false;
     }
 
+    // find local address
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    status_ = getaddrinfo(options->localAddress, NULL, &hints, &options->localAddrList);
+
+
     // XML Output...
     if (options->xmlOutput != 0)
         fprintf(options->xmlOutput, " <ssltest host=\"%s\" port=\"%s\">\n", options->host, options->service);
@@ -2042,7 +2061,7 @@ int main(int argc, char *argv[])
     // ToDo: service options.port = 0;
     xmlArg = 0;
     strcpy(options.host, "127.0.0.1");
-    options.localip[0] = options.localip[1] = options.localip[2] = options.localip[3] = 0;
+    options.bindLocalAddress = false;
     options.noFailed = false;
     options.reneg = false;
     options.starttls_ftp = false;
@@ -2073,11 +2092,8 @@ int main(int argc, char *argv[])
         // localip
         else if ((strncmp("--localip=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10))
         {
-            if( str_to_ip(argv[argLoop]+10,&(options.localip[0])) == 0)
-            {
-                printf("%sERROR: Local IP argument has wrong format: %s.%s\n", COL_RED, argv[argLoop]+10, RESET);
-                exit(0);
-            }
+            options.bindLocalAddress = true;
+            strncpy(options.localAddress, argv[argLoop] + 10, sizeof(options.localAddress));
         }
 
         // Show only supported
