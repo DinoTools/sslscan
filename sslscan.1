@@ -31,6 +31,15 @@ A file containing a list of hosts to
 check. Hosts can be supplied with
 ports (i.e. host:port). One target per line.
 .TP
+.B \-\-ipv4
+Force the use of IPv4.
+.TP
+.B \-\-ipv6
+Force the use of IPv6.
+.TP
+.B \-\-localip=<ip>
+Local IP from which connection should be made.
+.TP
 .B \-\-no\-failed
 List only accepted ciphers
 (default is to listing all ciphers).
@@ -95,6 +104,23 @@ Enables workarounds for SSL bugs.
 .B \-\-xml=<file>
 Output results to an XML file.
 .br
+.SH EXAMPLES
+.LP
+Connect to localhost
+.RS
+.nf
+sslscan 127.0.0.1
+sslscan [::1]
+.fi
+.RE
+.LP
+Connect to localhost and use port 443
+.RS
+.nf
+sslscan 127.0.0.1:443
+sslscan [::1]:443
+.fi
+.RE
 .SH AUTHOR
 sslscan was originally written by Ian Ventura-Whiting <fizz@titania.co.uk>.
 sslscan was extended by Jacob Appelbaum <jacob@appelbaum.net>.
