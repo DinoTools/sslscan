@@ -2095,28 +2095,6 @@ int parseHostString(char *host, struct sslCheckOptions *options)
     return 0;
 }
 
-int str_to_ip(char *str, unsigned char ip[4])
-{
-    unsigned int in[4];
-    int i;
-
-    if (sscanf(str,"%u.%u.%u.%u",&(in[0]),&(in[1]),&(in[2]),&(in[3])) == 4)
-    {
-        for (i=0; i<4; i++)
-            if (in[i] > 255)
-            {
-                printf("%sERROR: Invalid local IP address %s.%s\n", COL_RED, str, RESET);
-                return(0);
-            }
-        ip[0]=in[0];
-        ip[1]=in[1];
-        ip[2]=in[2];
-        ip[3]=in[3];
-        return(1);
-    }
-    return(0);
-}
-
 int main(int argc, char *argv[])
 {
     // Variables...
