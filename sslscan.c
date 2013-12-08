@@ -2371,8 +2371,11 @@ int main(int argc, char *argv[])
             printf("  %s--verbose%s            Display verbose output.\n", COL_GREEN, RESET);
             printf("  %s--help%s               Display the  help text  you are  now\n", COL_GREEN, RESET);
             printf("                       reading.\n");
-            printf("%sExample:%s\n", COL_BLUE, RESET);
-            printf("  %s%s 127.0.0.1%s\n\n", COL_GREEN, argv[0], RESET);
+            printf("%sExamples:%s\n", COL_BLUE, RESET);
+            printf("  %s%s 127.0.0.1%s\n", COL_GREEN, argv[0], RESET);
+            printf("  %s%s 127.0.0.1:443%s\n", COL_GREEN, argv[0], RESET);
+            printf("  %s%s [::1]%s\n", COL_GREEN, argv[0], RESET);
+            printf("  %s%s [::1]:443%s\n\n", COL_GREEN, argv[0], RESET);
             break;
 
         // Check a single host/port ciphers...
