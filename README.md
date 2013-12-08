@@ -7,6 +7,18 @@ The output includes preferred ciphers of the SSL service, the certificate
 and is in Text and XML formats.
 
 
+Features
+--------
+
+* Query SSL services
+* Supported cryptographic protocols: SSLv2, SSLv3, TLS 1.0, TLS 1.1 and TLS 1.2 (depends on used OpenSSL library)
+* STARTTLS support with FTP, IMAP, POP3, SMTP and XMPP
+* Perform a HTTP connect
+* IPv4 and IPv6
+* Bind to local IP address
+* Text or XML output
+
+
 Install
 -------
 
