@@ -1858,6 +1858,23 @@ int testHost(struct sslCheckOptions *options)
     struct sslCipher *sslCipherPointer;
     int status = true;
 
+    // set default port if service is not given
+    if (strlen(options->service) == 0)
+    {
+        if (options->starttls_ftp)
+            strcpy(options->service, "21");
+        else if (options->starttls_smtp)
+            strcpy(options->service, "25");
+        else if (options->starttls_pop3)
+            strcpy(options->service, "110");
+        else if (options->starttls_imap)
+            strcpy(options->service, "143");
+        else if (options->starttls_xmpp)
+            strcpy(options->service, "5222");
+        else
+            strcpy(options->service, "443");
+    }
+
     // Reset address selection
     options->addrSelected = NULL;
     // Resolve Host Name
@@ -2035,6 +2052,49 @@ int testHost(struct sslCheckOptions *options)
     return status;
 }
 
+int parseHostString(char *host, struct sslCheckOptions *options)
+{
+    int tempInt = 0;
+    int maxSize = strlen(host);
+
+    /**
+     * extract IP address and remove square brackets
+     * - IPv4: 127.0.0.1 or 127.0.0.1:443
+     * - IPv6: [::1] or [::1]:443
+     */
+    int squareBrackets = false;
+    if (host[0] == '[')
+    {
+        squareBrackets = true;
+        // skip the square bracket
+        host++;
+    }
+
+    while ((host[tempInt] != 0) && ((squareBrackets == true && host[tempInt] != ']') || (squareBrackets == false && host[tempInt] != ':')))
+        tempInt++;
+
+    if (squareBrackets == true && host[tempInt] == ']')
+    {
+        host[tempInt] = 0;
+        if (tempInt < maxSize && host[tempInt + 1] == ':')
+        {
+            tempInt++;
+            host[tempInt] = 0;
+        }
+    }
+    else
+        host[tempInt] = 0;
+
+    strncpy(options->host, host, sizeof(options->host) -1);
+
+    // Get service (if it exists)...
+    tempInt++;
+    if (tempInt < maxSize)
+        strncpy(options->service, host + tempInt, sizeof(options->service) - 1);
+
+    return 0;
+}
+
 int str_to_ip(char *str, unsigned char ip[4])
 {
     unsigned int in[4];
@@ -2064,8 +2124,6 @@ int main(int argc, char *argv[])
     struct sslCipher *sslCipherPointer;
     int status=0;
     int argLoop;
-    int tempInt;
-    int maxSize;
     int xmlArg;
     int mode = mode_help;
     FILE *targetsFile;
@@ -2073,9 +2131,9 @@ int main(int argc, char *argv[])
 
     // Init...
     memset(&options, 0, sizeof(struct sslCheckOptions));
-    // ToDo: service options.port = 0;
     xmlArg = 0;
     strcpy(options.host, "127.0.0.1");
+    options.service[0] = '\0';
     options.bindLocalAddress = false;
     options.forceAddressFamily = FORCE_AF_UNSPEC;
     options.noFailed = false;
@@ -2231,29 +2289,7 @@ int main(int argc, char *argv[])
             mode = mode_single;
 
             // Get host...
-            tempInt = 0;
-            maxSize = strlen(argv[argLoop]);
-            while ((argv[argLoop][tempInt] != 0) && (argv[argLoop][tempInt] != ':'))
-                tempInt++;
-            argv[argLoop][tempInt] = 0;
-            strncpy(options.host, argv[argLoop], sizeof(options.host) -1);
-
-            // Get service (if it exists)...
-            tempInt++;
-            if (tempInt < maxSize)
-                strncpy(options.service, argv[argLoop] + tempInt, sizeof(options.service) - 1);
-            else if (options.starttls_ftp)
-                strcpy(options.service, "21");
-            else if (options.starttls_smtp)
-                strcpy(options.service, "25");
-            else if (options.starttls_pop3)
-                strcpy(options.service, "110");
-            else if (options.starttls_imap)
-                strcpy(options.service, "143");
-            else if (options.starttls_xmpp)
-                strcpy(options.service, "5222");
-            else
-                strcpy(options.service, "443");
+            parseHostString(argv[argLoop], &options);
         }
 
         // Not too sure what the user is doing...
@@ -2412,16 +2448,7 @@ int main(int argc, char *argv[])
                             if (strlen(line) != 0)
                             {
                                 // Get host...
-                                tempInt = 0;
-                                while ((line[tempInt] != 0) && (line[tempInt] != ':'))
-                                    tempInt++;
-                                line[tempInt] = 0;
-                                strncpy(options.host, line, sizeof(options.host) -1);
-
-                                // Get port (if it exists)...
-                                tempInt++;
-                                if (strlen(line + tempInt) > 0)
-                                    strncpy(options.service, line + tempInt, sizeof(options.service));
+                                parseHostString(line, &options);
 
                                 // Test the host...
                                 status = testHost(&options);
