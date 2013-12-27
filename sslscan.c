@@ -2360,107 +2360,100 @@ int main(int argc, char *argv[])
 		fprintf(options.xmlOutput, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document title=\"SSLScan Results\" version=\"%s\" web=\"http://www.titania.co.uk\">\n", xml_version);
 	}
 
-	switch (mode)
+	printf("%s%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_banner, program_version,
+			SSLeay_version(SSLEAY_VERSION), RESET);
+
+	SSLeay_add_all_algorithms();
+	ERR_load_crypto_strings();
+
+	// Build a list of ciphers...
+	switch (options.sslVersion)
 	{
-		// Check a single host/port ciphers...
-		case mode_single:
-		case mode_multiple:
-			printf("%s%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_banner, program_version,
-					SSLeay_version(SSLEAY_VERSION), RESET);
-
-			SSLeay_add_all_algorithms();
-			ERR_load_crypto_strings();
-
-			// Build a list of ciphers...
-			switch (options.sslVersion)
-			{
-				case ssl_all:
+		case ssl_all:
 
 #ifndef OPENSSL_NO_SSL2
-					populateCipherList(&options, SSLv2_client_method());
+			populateCipherList(&options, SSLv2_client_method());
 #endif
 
-					populateCipherList(&options, SSLv3_client_method());
-					populateCipherList(&options, TLSv1_client_method());
+			populateCipherList(&options, SSLv3_client_method());
+			populateCipherList(&options, TLSv1_client_method());
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-					populateCipherList(&options, TLSv1_1_client_method());
-					populateCipherList(&options, TLSv1_2_client_method());
+			populateCipherList(&options, TLSv1_1_client_method());
+			populateCipherList(&options, TLSv1_2_client_method());
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
-					break;
+			break;
 #ifndef OPENSSL_NO_SSL2
-				case ssl_v2:
-					populateCipherList(&options, SSLv2_client_method());
-					break;
+		case ssl_v2:
+			populateCipherList(&options, SSLv2_client_method());
+			break;
 #endif
-				case ssl_v3:
-					populateCipherList(&options, SSLv3_client_method());
-					break;
-				case tls_v1:
-					populateCipherList(&options, TLSv1_client_method());
-					break;
+		case ssl_v3:
+			populateCipherList(&options, SSLv3_client_method());
+			break;
+		case tls_v1:
+			populateCipherList(&options, TLSv1_client_method());
+			break;
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-				case tls_v11:
-					populateCipherList(&options, TLSv1_1_client_method());
-					break;
-				case tls_v12:
-					populateCipherList(&options, TLSv1_2_client_method());
-					break;
+		case tls_v11:
+			populateCipherList(&options, TLSv1_1_client_method());
+			break;
+		case tls_v12:
+			populateCipherList(&options, TLSv1_2_client_method());
+			break;
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
-			}
+	}
 
-			// Do the testing...
-			if (mode == mode_single)
-			{
-				status = testHost(&options);
-				if(!status)
-					printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options.host, RESET);
-			}
+	// Do the testing...
+	if (mode == mode_single)
+	{
+		status = testHost(&options);
+		if(!status)
+			printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options.host, RESET);
+	}
+	else
+	{
+		if (fileExists(argv[options.targets] + 10) == true)
+		{
+			// Open targets file...
+			targetsFile = fopen(argv[options.targets] + 10, "r");
+			if (targetsFile == NULL)
+				printf("%sERROR: Could not open targets file %s.%s\n", COL_RED, argv[options.targets] + 10, RESET);
 			else
 			{
-				if (fileExists(argv[options.targets] + 10) == true)
+				readLine(targetsFile, line, sizeof(line));
+				while (feof(targetsFile) == 0)
 				{
-					// Open targets file...
-					targetsFile = fopen(argv[options.targets] + 10, "r");
-					if (targetsFile == NULL)
-						printf("%sERROR: Could not open targets file %s.%s\n", COL_RED, argv[options.targets] + 10, RESET);
-					else
+					if (strlen(line) != 0)
 					{
-						readLine(targetsFile, line, sizeof(line));
-						while (feof(targetsFile) == 0)
-						{
-							if (strlen(line) != 0)
-							{
-								// Get host...
-								parseHostString(line, &options);
+						// Get host...
+						parseHostString(line, &options);
 
-								// Test the host...
-								status = testHost(&options);
-								if(!status)
-								{
-									// print error and continue
-									printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options.host, RESET);
-								}
-							}
-							readLine(targetsFile, line, sizeof(line));
+						// Test the host...
+						status = testHost(&options);
+						if(!status)
+						{
+							// print error and continue
+							printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options.host, RESET);
 						}
 					}
+					readLine(targetsFile, line, sizeof(line));
 				}
-				else
-					printf("%sERROR: Targets file %s does not exist.%s\n", COL_RED, argv[options.targets] + 10, RESET);
 			}
+		}
+		else
+			printf("%sERROR: Targets file %s does not exist.%s\n", COL_RED, argv[options.targets] + 10, RESET);
+	}
 
-			// Free Structures
-			while (options.ciphers != 0)
-			{
-				sslCipherPointer = options.ciphers->next;
-				free(options.ciphers);
-				options.ciphers = sslCipherPointer;
-			}
-			break;
+	// Free Structures
+	while (options.ciphers != 0)
+	{
+		sslCipherPointer = options.ciphers->next;
+		free(options.ciphers);
+		options.ciphers = sslCipherPointer;
 	}
 
 	// Close XML file, if required...
