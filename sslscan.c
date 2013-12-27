@@ -94,12 +94,12 @@ DWORD dwError;
 
 #define BUFFERSIZE 1024
 
-#define ssl_all 0
-#define ssl_v2 1
-#define ssl_v3 2
-#define tls_v1 3
-#define tls_v11 4
-#define tls_v12 5
+#define ssl_all 255
+#define ssl_v2  1
+#define ssl_v3  2
+#define tls_v10 4
+#define tls_v11 8
+#define tls_v12 16
 
 // force address family
 #define FORCE_AF_UNSPEC 0
@@ -164,7 +164,7 @@ struct sslCheckOptions
 	int starttls_smtp;
 	int starttls_xmpp;
 	char *xmpp_domain;
-	int sslVersion;
+	uint_fast8_t ssl_versions;
 	char *targets;
 	int pout;
 	int sslbugs;
@@ -1500,7 +1500,7 @@ int getCertificate(struct sslCheckOptions *options)
 	{
 
 		// Setup Context Object...
-		if( options->sslVersion == tls_v1) {
+		if( options->ssl_versions & tls_v10) {
 			if (options->verbose)
 				printf("sslMethod = TLSv1_method()");
 			sslMethod = TLSv1_method();
@@ -2058,56 +2058,29 @@ int testHost(struct sslCheckOptions *options)
 		sslCipherPointer = sslCipherPointer->next;
 	}
 
-	if (status == true)
-	{
+	if (status == true) {
 		// Test preferred ciphers...
 		printf("\n  %sPreferred Server Cipher(s):%s\n", COL_BLUE, RESET);
 		if (options->pout == true)
 			printf("|| Version || Bits || Cipher ||\n");
-		switch (options->sslVersion)
-		{
-			case ssl_all:
-				status = true;
+
 #ifndef OPENSSL_NO_SSL2
-				if (status != false)
-					status = defaultCipher(options, SSLv2_client_method());
+		if (options->ssl_versions & ssl_v2)
+			status = defaultCipher(options, SSLv2_client_method());
 #endif
-				if (status != false)
-					status = defaultCipher(options, SSLv3_client_method());
-				if (status != false)
-					status = defaultCipher(options, TLSv1_client_method());
+
+		if (options->ssl_versions & ssl_v3)
+			status = defaultCipher(options, SSLv3_client_method());
+		if (options->ssl_versions & tls_v10)
+			status = defaultCipher(options, TLSv1_client_method());
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-				if (status != false)
-					status = defaultCipher(options, TLSv1_1_client_method());
-				if (status != false)
-					status = defaultCipher(options, TLSv1_2_client_method());
+		if (options->ssl_versions & tls_v11)
+			status = defaultCipher(options, TLSv1_1_client_method());
+		if (options->ssl_versions & tls_v12)
+			status = defaultCipher(options, TLSv1_2_client_method());
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
-				break;
-			case ssl_v2:
-#ifndef OPENSSL_NO_SSL2
-				// ToDo: Display error?
-				status = defaultCipher(options, SSLv2_client_method());
-#endif
-				break;
-			case ssl_v3:
-				status = defaultCipher(options, SSLv3_client_method());
-				break;
-			case tls_v1:
-				status = defaultCipher(options, TLSv1_client_method());
-				break;
-
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-			case tls_v11:
-				status = defaultCipher(options, TLSv1_1_client_method());
-				break;
-			case tls_v12:
-				status = defaultCipher(options, TLSv1_2_client_method());
-				break;
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-
-		}
 	}
 
 	if (status == true)
@@ -2164,6 +2137,36 @@ int parseHostString(char *host, struct sslCheckOptions *options)
 		strncpy(options->service, host + tempInt, sizeof(options->service) - 1);
 
 	return 0;
+}
+
+/**
+ * Initialize OpenSSL
+ * - Add algorithms
+ * - Load strings
+ * - populate ciphers
+ */
+void init_ssl(struct sslCheckOptions *options)
+{
+	SSLeay_add_all_algorithms();
+	ERR_load_crypto_strings();
+
+	// Build a list of ciphers...
+#ifndef OPENSSL_NO_SSL2
+	if (options->ssl_versions & ssl_v2)
+		populateCipherList(options, SSLv2_client_method());
+#endif
+	if (options->ssl_versions & ssl_v3)
+		populateCipherList(options, SSLv3_client_method());
+
+	if (options->ssl_versions & tls_v10)
+		populateCipherList(options, TLSv1_client_method());
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	if (options->ssl_versions & tls_v11)
+		populateCipherList(options, TLSv1_1_client_method());
+	if (options->ssl_versions & tls_v12)
+		populateCipherList(options, TLSv1_2_client_method());
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 }
 
 /**
@@ -2243,7 +2246,7 @@ int main(int argc, char *argv[])
 	options.verbose = false;
 	options.targets = NULL;
 
-	options.sslVersion = ssl_all;
+	options.ssl_versions = ssl_all;
 	options.pout = false;
 	SSL_library_init();
 
@@ -2314,65 +2317,56 @@ int main(int argc, char *argv[])
 		// StartTLS... FTP
 		else if (strcmp("--starttls-ftp", argv[argLoop]) == 0)
 		{
-			options.sslVersion = tls_v1;
+			options.ssl_versions = tls_v10;
 			options.starttls_ftp = true;
 		}
 		// StartTLS... IMAP
 		else if (strcmp("--starttls-imap", argv[argLoop]) == 0)
 		{
-			options.sslVersion = tls_v1;
+			options.ssl_versions = tls_v10;
 			options.starttls_imap = true;
 		}
 		// StartTLS... POP3
 		else if (strcmp("--starttls-pop3", argv[argLoop]) == 0)
 		{
-			options.sslVersion = tls_v1;
+			options.ssl_versions = tls_v10;
 			options.starttls_pop3 = true;
 		}
 		// StartTLS... SMTP
 		else if (strcmp("--starttls-smtp", argv[argLoop]) == 0)
 		{
-			options.sslVersion = tls_v1;
+			options.ssl_versions = tls_v10;
 			options.starttls_smtp = true;
 		}
 		// StartTLS... XMPP
 		else if (strcmp("--starttls-xmpp", argv[argLoop]) == 0)
 		{
-			options.sslVersion = tls_v1;
+			options.ssl_versions = tls_v10;
 			options.starttls_xmpp = true;
 		}
 		// XMPP... Domain
 		else if (strncmp("--xmpp-domain=", argv[argLoop], 14) == 0)
 		{
 			options.xmpp_domain = argv[argLoop] +14;
-		}
 
 #ifndef OPENSSL_NO_SSL2
-		// SSL v2 only...
-		else if (strcmp("--ssl2", argv[argLoop]) == 0)
-			options.sslVersion = ssl_v2;
+		} else if (strcmp("--ssl2", argv[argLoop]) == 0) {
+			options.ssl_versions = ssl_v2;
 #endif // #ifndef OPENSSL_NO_SSL2
 
-		// SSL v3 only...
-		else if (strcmp("--ssl3", argv[argLoop]) == 0)
-			options.sslVersion = ssl_v3;
-
-		// TLS v1 only...
-		else if (strcmp("--tls1", argv[argLoop]) == 0)
-			options.sslVersion = tls_v1;
+		} else if (strcmp("--ssl3", argv[argLoop]) == 0) {
+			options.ssl_versions = ssl_v3;
+		} else if (strcmp("--tls1", argv[argLoop]) == 0) {
+			options.ssl_versions = tls_v10;
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-		// TLS v11 only...
-		else if (strcmp("--tls11", argv[argLoop]) == 0)
-			options.sslVersion = tls_v11;
-
-		// TLS v12 only...
-		else if (strcmp("--tls12", argv[argLoop]) == 0)
-			options.sslVersion = tls_v12;
+		} else if (strcmp("--tls11", argv[argLoop]) == 0) {
+			options.ssl_versions = tls_v11;
+		} else if (strcmp("--tls12", argv[argLoop]) == 0) {
+			options.ssl_versions = tls_v12;
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
-		// SSL Bugs...
-		else if (strcmp("--bugs", argv[argLoop]) == 0)
+		} else if (strcmp("--bugs", argv[argLoop]) == 0)
 			options.sslbugs = 1;
 
 		// SSL HTTP Get...
@@ -2410,49 +2404,8 @@ int main(int argc, char *argv[])
 	printf("%s%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_banner, program_version,
 			SSLeay_version(SSLEAY_VERSION), RESET);
 
-	SSLeay_add_all_algorithms();
-	ERR_load_crypto_strings();
 
-	// Build a list of ciphers...
-	switch (options.sslVersion)
-	{
-		case ssl_all:
-
-#ifndef OPENSSL_NO_SSL2
-			populateCipherList(&options, SSLv2_client_method());
-#endif
-
-			populateCipherList(&options, SSLv3_client_method());
-			populateCipherList(&options, TLSv1_client_method());
-
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-			populateCipherList(&options, TLSv1_1_client_method());
-			populateCipherList(&options, TLSv1_2_client_method());
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-
-			break;
-#ifndef OPENSSL_NO_SSL2
-		case ssl_v2:
-			populateCipherList(&options, SSLv2_client_method());
-			break;
-#endif
-		case ssl_v3:
-			populateCipherList(&options, SSLv3_client_method());
-			break;
-		case tls_v1:
-			populateCipherList(&options, TLSv1_client_method());
-			break;
-
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-		case tls_v11:
-			populateCipherList(&options, TLSv1_1_client_method());
-			break;
-		case tls_v12:
-			populateCipherList(&options, TLSv1_2_client_method());
-			break;
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-
-	}
+	init_ssl(&options);
 
 	status = run_tests(&options);
 
