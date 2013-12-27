@@ -165,7 +165,7 @@ struct sslCheckOptions
 	int starttls_xmpp;
 	char *xmpp_domain;
 	int sslVersion;
-	int targets;
+	char *targets;
 	int pout;
 	int sslbugs;
 	int http;
@@ -2166,6 +2166,56 @@ int parseHostString(char *host, struct sslCheckOptions *options)
 	return 0;
 }
 
+/**
+ * Run all tests
+ */
+int run_tests(struct sslCheckOptions *options)
+{
+	FILE *fp;
+	char line[1024];
+	int status = 0;
+
+	if (options->targets != NULL) {
+		if (fileExists(options->targets) == false) {
+			printf("%sERROR: Targets file %s does not exist.%s\n", COL_RED, options->targets, RESET);
+			// ToDo:
+			return 1;
+		}
+
+		fp = fopen(options->targets, "r");
+		if (fp == NULL) {
+			printf("%sERROR: Could not open targets file %s.%s\n", COL_RED, options->targets, RESET);
+			// ToDo:
+			return 1;
+		}
+
+		readLine(fp, line, sizeof(line));
+		while (feof(fp) == 0) {
+			if (strlen(line) != 0) {
+				// Get host...
+				parseHostString(line, options);
+
+				// Test the host...
+				status = testHost(options);
+				if(!status) {
+					// print error and continue
+					printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options->host, RESET);
+				}
+			}
+			readLine(fp, line, sizeof(line));
+		}
+
+	} else {
+		status = testHost(options);
+		if(!status) {
+			printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options->host, RESET);
+			// ToDo:
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	// Variables...
@@ -2175,8 +2225,6 @@ int main(int argc, char *argv[])
 	int argLoop;
 	int xmlArg;
 	int mode = mode_help;
-	FILE *targetsFile;
-	char line[1024];
 
 	// Init...
 	memset(&options, 0, sizeof(struct sslCheckOptions));
@@ -2193,6 +2241,7 @@ int main(int argc, char *argv[])
 	options.starttls_smtp = false;
 	options.starttls_xmpp = false;
 	options.verbose = false;
+	options.targets = NULL;
 
 	options.sslVersion = ssl_all;
 	options.pout = false;
@@ -2204,10 +2253,8 @@ int main(int argc, char *argv[])
 		if (strcmp("--help", argv[argLoop]) == 0) {
 			print_help(argv[0]);
 			return 0;
-		} else if ((strncmp("--targets=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10))
-		{
-			mode = mode_multiple;
-			options.targets = argLoop;
+		} else if ((strncmp("--targets=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10)) {
+			options.targets = argv[argLoop] + 10;
 		}
 
 		// force IPv4 or IPv6
@@ -2407,46 +2454,7 @@ int main(int argc, char *argv[])
 
 	}
 
-	// Do the testing...
-	if (mode == mode_single)
-	{
-		status = testHost(&options);
-		if(!status)
-			printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options.host, RESET);
-	}
-	else
-	{
-		if (fileExists(argv[options.targets] + 10) == true)
-		{
-			// Open targets file...
-			targetsFile = fopen(argv[options.targets] + 10, "r");
-			if (targetsFile == NULL)
-				printf("%sERROR: Could not open targets file %s.%s\n", COL_RED, argv[options.targets] + 10, RESET);
-			else
-			{
-				readLine(targetsFile, line, sizeof(line));
-				while (feof(targetsFile) == 0)
-				{
-					if (strlen(line) != 0)
-					{
-						// Get host...
-						parseHostString(line, &options);
-
-						// Test the host...
-						status = testHost(&options);
-						if(!status)
-						{
-							// print error and continue
-							printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options.host, RESET);
-						}
-					}
-					readLine(targetsFile, line, sizeof(line));
-				}
-			}
-		}
-		else
-			printf("%sERROR: Targets file %s does not exist.%s\n", COL_RED, argv[options.targets] + 10, RESET);
-	}
+	status = run_tests(&options);
 
 	// Free Structures
 	while (options.ciphers != 0)
@@ -2463,5 +2471,5 @@ int main(int argc, char *argv[])
 		fclose(options.xmlOutput);
 	}
 
-	return 0;
+	return status;
 }
