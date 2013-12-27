@@ -195,6 +195,69 @@ struct renegotiationOutput
     int secure;
 };
 
+/**
+ * Print the help text.
+ */
+void print_help(char *prog_name)
+{
+	// Program version banner...
+	printf("%s%s%s\n", COL_BLUE, program_banner, RESET);
+	printf("SSLScan is a fast SSL port scanner. SSLScan connects to SSL\n");
+	printf("ports and determines what  ciphers are supported, which are\n");
+	printf("the servers  preferred  ciphers,  which  SSL  protocols  are\n");
+	printf("supported  and   returns  the   SSL   certificate.   Client\n");
+	printf("certificates /  private key can be configured and output is\n");
+	printf("to text / XML.\n\n");
+	printf("%sCommand:%s\n", COL_BLUE, RESET);
+	printf("  %s%s [Options] [host:port | host]%s\n\n", COL_GREEN, prog_name, RESET);
+	printf("%sOptions:%s\n", COL_BLUE, RESET);
+	printf("  %s--targets=<file>%s     A file containing a list of hosts to\n", COL_GREEN, RESET);
+	printf("                       check.  Hosts can  be supplied  with\n");
+	printf("                       ports (i.e. host:port).\n");
+	printf("  %s--ipv4%s               Force IPv4\n", COL_GREEN, RESET);
+	printf("  %s--ipv6%s               Force IPv6\n", COL_GREEN, RESET);
+	printf("  %s--localip=<ip>%s       Local IP from which connection should be made\n", COL_GREEN, RESET);
+	printf("  %s--no-failed%s          List only accepted ciphers  (default\n", COL_GREEN, RESET);
+	printf("                       is to listing all ciphers).\n");
+#ifndef OPENSSL_NO_SSL2
+	printf("  %s--ssl2%s               Only check SSLv2 ciphers.\n", COL_GREEN, RESET);
+#endif // #ifndef OPENSSL_NO_SSL2
+	printf("  %s--ssl3%s               Only check SSLv3 ciphers.\n", COL_GREEN, RESET);
+	printf("  %s--tls1%s               Only check TLSv1 ciphers.\n", COL_GREEN, RESET);
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	printf("  %s--tls11%s              Only check TLSv11 ciphers.\n", COL_GREEN, RESET);
+	printf("  %s--tls12%s              Only check TLSv12 ciphers.\n", COL_GREEN, RESET);
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	printf("  %s--pk=<file>%s          A file containing the private key or\n", COL_GREEN, RESET);
+	printf("                       a PKCS#12  file containing a private\n");
+	printf("                       key/certificate pair (as produced by\n");
+	printf("                       MSIE and Netscape).\n");
+	printf("  %s--pkpass=<password>%s  The password for the private  key or\n", COL_GREEN, RESET);
+	printf("                       PKCS#12 file.\n");
+	printf("  %s--certs=<file>%s       A file containing PEM/ASN1 formatted\n", COL_GREEN, RESET);
+	printf("                       client certificates.\n");
+	printf("  %s--renegotiation%s      Attempt TLS renegotiation\n", COL_GREEN, RESET);
+	printf("  %s--starttls-ftp%s       STARTTLS setup for FTP\n", COL_GREEN, RESET);
+	printf("  %s--starttls-imap%s      STARTTLS setup for IMAP\n", COL_GREEN, RESET);
+	printf("  %s--starttls-pop3%s      STARTTLS setup for POP3\n", COL_GREEN, RESET);
+	printf("  %s--starttls-smtp%s      STARTTLS setup for SMTP\n", COL_GREEN, RESET);
+	printf("  %s--starttls-xmpp%s      STARTTLS setup for XMPP\n", COL_GREEN, RESET);
+	printf("  %s--xmpp-domain=<domain>%s Specify this if the XMPP domain is different from the hostname\n", COL_GREEN, RESET);
+	printf("  %s--http%s               Test a HTTP connection.\n", COL_GREEN, RESET);
+	printf("  %s--bugs%s               Enable SSL implementation  bug work-\n", COL_GREEN, RESET);
+	printf("                       arounds.\n");
+	printf("  %s--xml=<file>%s         Output results to an XML file.\n", COL_GREEN, RESET);
+	printf("  %s--version%s            Display the program version.\n", COL_GREEN, RESET);
+	printf("  %s--verbose%s            Display verbose output.\n", COL_GREEN, RESET);
+	printf("  %s--help%s               Display the  help text  you are  now\n", COL_GREEN, RESET);
+	printf("                       reading.\n");
+	printf("%sExamples:%s\n", COL_BLUE, RESET);
+	printf("  %s%s 127.0.0.1%s\n", COL_GREEN, prog_name, RESET);
+	printf("  %s%s 127.0.0.1:443%s\n", COL_GREEN, prog_name, RESET);
+	printf("  %s%s [::1]%s\n", COL_GREEN, prog_name, RESET);
+	printf("  %s%s [::1]:443%s\n\n", COL_GREEN, prog_name, RESET);
+}
+
 // Adds Ciphers to the Cipher List structure
 int populateCipherList(struct sslCheckOptions *options, const SSL_METHOD *sslMethod)
 {
@@ -2298,62 +2361,7 @@ int main(int argc, char *argv[])
             break;
 
         case mode_help:
-            // Program version banner...
-            printf("%s%s%s\n", COL_BLUE, program_banner, RESET);
-            printf("SSLScan is a fast SSL port scanner. SSLScan connects to SSL\n");
-            printf("ports and determines what  ciphers are supported, which are\n");
-            printf("the servers  preferred  ciphers,  which  SSL  protocols  are\n");
-            printf("supported  and   returns  the   SSL   certificate.   Client\n");
-            printf("certificates /  private key can be configured and output is\n");
-            printf("to text / XML.\n\n");
-            printf("%sCommand:%s\n", COL_BLUE, RESET);
-            printf("  %s%s [Options] [host:port | host]%s\n\n", COL_GREEN, argv[0], RESET);
-            printf("%sOptions:%s\n", COL_BLUE, RESET);
-            printf("  %s--targets=<file>%s     A file containing a list of hosts to\n", COL_GREEN, RESET);
-            printf("                       check.  Hosts can  be supplied  with\n");
-            printf("                       ports (i.e. host:port).\n");
-            printf("  %s--ipv4%s               Force IPv4\n", COL_GREEN, RESET);
-            printf("  %s--ipv6%s               Force IPv6\n", COL_GREEN, RESET);
-            printf("  %s--localip=<ip>%s       Local IP from which connection should be made\n", COL_GREEN, RESET);
-            printf("  %s--no-failed%s          List only accepted ciphers  (default\n", COL_GREEN, RESET);
-            printf("                       is to listing all ciphers).\n");
-#ifndef OPENSSL_NO_SSL2
-            printf("  %s--ssl2%s               Only check SSLv2 ciphers.\n", COL_GREEN, RESET);
-#endif // #ifndef OPENSSL_NO_SSL2
-            printf("  %s--ssl3%s               Only check SSLv3 ciphers.\n", COL_GREEN, RESET);
-            printf("  %s--tls1%s               Only check TLSv1 ciphers.\n", COL_GREEN, RESET);
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-            printf("  %s--tls11%s              Only check TLSv11 ciphers.\n", COL_GREEN, RESET);
-            printf("  %s--tls12%s              Only check TLSv12 ciphers.\n", COL_GREEN, RESET);
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-            printf("  %s--pk=<file>%s          A file containing the private key or\n", COL_GREEN, RESET);
-            printf("                       a PKCS#12  file containing a private\n");
-            printf("                       key/certificate pair (as produced by\n");
-            printf("                       MSIE and Netscape).\n");
-            printf("  %s--pkpass=<password>%s  The password for the private  key or\n", COL_GREEN, RESET);
-            printf("                       PKCS#12 file.\n");
-            printf("  %s--certs=<file>%s       A file containing PEM/ASN1 formatted\n", COL_GREEN, RESET);
-            printf("                       client certificates.\n");
-            printf("  %s--renegotiation%s      Attempt TLS renegotiation\n", COL_GREEN, RESET);
-            printf("  %s--starttls-ftp%s       STARTTLS setup for FTP\n", COL_GREEN, RESET);
-            printf("  %s--starttls-imap%s      STARTTLS setup for IMAP\n", COL_GREEN, RESET);
-            printf("  %s--starttls-pop3%s      STARTTLS setup for POP3\n", COL_GREEN, RESET);
-            printf("  %s--starttls-smtp%s      STARTTLS setup for SMTP\n", COL_GREEN, RESET);
-            printf("  %s--starttls-xmpp%s      STARTTLS setup for XMPP\n", COL_GREEN, RESET);
-            printf("  %s--xmpp-domain=<domain>%s Specify this if the XMPP domain is different from the hostname\n", COL_GREEN, RESET);
-            printf("  %s--http%s               Test a HTTP connection.\n", COL_GREEN, RESET);
-            printf("  %s--bugs%s               Enable SSL implementation  bug work-\n", COL_GREEN, RESET);
-            printf("                       arounds.\n");
-            printf("  %s--xml=<file>%s         Output results to an XML file.\n", COL_GREEN, RESET);
-            printf("  %s--version%s            Display the program version.\n", COL_GREEN, RESET);
-            printf("  %s--verbose%s            Display verbose output.\n", COL_GREEN, RESET);
-            printf("  %s--help%s               Display the  help text  you are  now\n", COL_GREEN, RESET);
-            printf("                       reading.\n");
-            printf("%sExamples:%s\n", COL_BLUE, RESET);
-            printf("  %s%s 127.0.0.1%s\n", COL_GREEN, argv[0], RESET);
-            printf("  %s%s 127.0.0.1:443%s\n", COL_GREEN, argv[0], RESET);
-            printf("  %s%s [::1]%s\n", COL_GREEN, argv[0], RESET);
-            printf("  %s%s [::1]:443%s\n\n", COL_GREEN, argv[0], RESET);
+            print_help(argv[0]);
             break;
 
         // Check a single host/port ciphers...
