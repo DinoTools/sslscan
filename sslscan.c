@@ -52,6 +52,9 @@
 #define PLAT_FREEBSD 1
 #endif
 
+// ToDo: check platform support
+#include <sys/time.h>
+
 #if defined(PLAT_WINDOWS)
 #include <stdio.h>
 #include <winsock2.h>
@@ -164,6 +167,8 @@ struct sslCheckOptions
 	int starttls_smtp;
 	int starttls_xmpp;
 	char *xmpp_domain;
+	long int connection_delay;
+	struct timeval connection_time;
 	uint_fast8_t ssl_versions;
 	char *targets;
 	int pout;
@@ -217,6 +222,8 @@ void print_help(char *prog_name)
 	printf("  %s--ipv4%s               Force IPv4\n", COL_GREEN, RESET);
 	printf("  %s--ipv6%s               Force IPv6\n", COL_GREEN, RESET);
 	printf("  %s--localip=<ip>%s       Local IP from which connection should be made\n", COL_GREEN, RESET);
+	printf("  %s--connection_delay=<N>%s\n", COL_GREEN, RESET);
+	printf("                       Wait N milliseconds between each connection.\n");
 	printf("  %s--no-failed%s          List only accepted ciphers  (default\n", COL_GREEN, RESET);
 	printf("                       is to listing all ciphers).\n");
 #ifndef OPENSSL_NO_SSL2
@@ -389,6 +396,74 @@ int readOrLogAndClose(int fd, void* buffer, size_t len, const struct sslCheckOpt
 	return 1;
 }
 
+/**
+ * Subtract two time values and return the result.
+ * Result:
+ * - 1 t1 > t2
+ * - 0 t1 = t2
+ * - -1 t1 < t2
+ */
+int timeval_substract(struct timeval *t1, struct timeval *t2, struct timeval *result)
+{
+	  while (t1->tv_usec > 999999) {
+		t1->tv_sec += t1->tv_usec / 1000000;
+		t1->tv_usec %= 1000000;
+	  }
+
+	  while (t2->tv_usec > 999999) {
+		t2->tv_sec += t2->tv_usec / 1000000;
+		t2->tv_usec %= 1000000;
+	  }
+
+	  result->tv_sec = t1->tv_sec - t2->tv_sec;
+
+	  if ((result->tv_usec = t1->tv_usec - t2->tv_usec) < 0) {
+		result->tv_usec += 1000000;
+		result->tv_sec--;
+	  }
+
+	  if (result->tv_sec == 0 && result->tv_usec == 0)
+		  return 0;
+
+	  if (result->tv_sec >= 0)
+		  return 1;
+
+	  return -1;
+}
+
+/**
+ * Wait at least the specified number of milliseconds. This function is used
+ * to limit the number of connections per second.
+ */
+void delay_connection(struct sslCheckOptions *options)
+{
+	struct timeval next;
+	struct timeval result;
+	struct timeval cur_time;
+	struct timespec delay;
+
+	if (options->connection_delay <= 0)
+		return;
+
+	next = options->connection_time;
+	next.tv_sec += options->connection_delay / 1000;
+	next.tv_usec += options->connection_delay % 1000 * 1000;
+
+	while (next.tv_usec > 999999) {
+		next.tv_sec++;
+		next.tv_usec -= 1000000;
+	}
+
+	gettimeofday(&cur_time, NULL);
+
+	while(timeval_substract(&next, &cur_time, &result) >= 0) {
+		delay.tv_sec = result.tv_sec;
+		delay.tv_nsec = result.tv_usec * 1000;
+		nanosleep(&delay, NULL);
+		gettimeofday(&cur_time, NULL);
+	}
+	options->connection_time = cur_time;
+}
 
 // Create a TCP socket
 int tcpConnect(struct sslCheckOptions *options)
@@ -448,6 +523,7 @@ int tcpConnect(struct sslCheckOptions *options)
 		printf("hostname: %s\n", inet_ntoa(saddr->sin_addr));
 		printf("port %d\n", (int)saddr->sin_port);*/
 		// Connect
+		delay_connection(options);
 		if(( status = connect(socketDescriptor, p->ai_addr, p->ai_addrlen)) == -1) {
 			close(socketDescriptor);
 			perror("connect");
@@ -2250,6 +2326,9 @@ int main(int argc, char *argv[])
 	options.starttls_xmpp = false;
 	options.verbose = false;
 	options.targets = NULL;
+	options.connection_delay = 0;
+	options.connection_time.tv_sec = 0;
+	options.connection_time.tv_usec = 0;
 
 	options.ssl_versions = ssl_all;
 	options.pout = false;
@@ -2277,6 +2356,8 @@ int main(int argc, char *argv[])
 		{
 			options.bindLocalAddress = true;
 			strncpy(options.localAddress, argv[argLoop] + 10, sizeof(options.localAddress));
+		} else if ((strncmp("--connection_delay=", argv[argLoop], 19) == 0) && (strlen(argv[argLoop]) > 19)) {
+			options.connection_delay = strtol(argv[argLoop] + 19, NULL, 10);
 		}
 
 		// Show only supported
