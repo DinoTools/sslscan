@@ -2193,12 +2193,10 @@ int main(int argc, char *argv[])
 	// Get program parameters
 	for (argLoop = 1; argLoop < argc; argLoop++)
 	{
-		// Help
-		if (strcmp("--help", argv[argLoop]) == 0)
-			mode = mode_help;
-
-		// targets
-		else if ((strncmp("--targets=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10))
+		if (strcmp("--help", argv[argLoop]) == 0) {
+			print_help(argv[0]);
+			return 0;
+		} else if ((strncmp("--targets=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10))
 		{
 			mode = mode_multiple;
 			options.targets = argLoop;
@@ -2331,11 +2329,11 @@ int main(int argc, char *argv[])
 
 			// Get host...
 			parseHostString(argv[argLoop], &options);
+		} else {
+			print_help(argv[0]);
+			// ToDo: define error codes
+			return 1;
 		}
-
-		// Not too sure what the user is doing...
-		else
-			mode = mode_help;
 	}
 
 	// Open XML file output...
@@ -2358,10 +2356,6 @@ int main(int argc, char *argv[])
 			printf("%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_version,
 					SSLeay_version(SSLEAY_VERSION), RESET);
 
-			break;
-
-		case mode_help:
-			print_help(argv[0]);
 			break;
 
 		// Check a single host/port ciphers...
