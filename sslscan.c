@@ -228,6 +228,11 @@ void print_help(char *prog_name)
 	printf("  %s--tls11%s              Only check TLSv11 ciphers.\n", COL_GREEN, RESET);
 	printf("  %s--tls12%s              Only check TLSv12 ciphers.\n", COL_GREEN, RESET);
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	printf("  %s--no_ssl2%s            Exclude SSLv2 chiphers.\n", COL_GREEN, RESET);
+	printf("  %s--no_ssl3%s            Exclude SSLv3 chiphers.\n", COL_GREEN, RESET);
+	printf("  %s--no_tls1%s            Exclude TLSv1 chiphers.\n", COL_GREEN, RESET);
+	printf("  %s--no_tls11%s           Exclude TLSv11 chiphers.\n", COL_GREEN, RESET);
+	printf("  %s--no_tls12%s           Exclude TLSv12 chiphers.\n", COL_GREEN, RESET);
 	printf("  %s--pk=<file>%s          A file containing the private key or\n", COL_GREEN, RESET);
 	printf("                       a PKCS#12  file containing a private\n");
 	printf("                       key/certificate pair (as produced by\n");
@@ -2365,6 +2370,17 @@ int main(int argc, char *argv[])
 		} else if (strcmp("--tls12", argv[argLoop]) == 0) {
 			options.ssl_versions = tls_v12;
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
+		} else if (strcmp("--no_ssl2", argv[argLoop]) == 0) {
+			options.ssl_versions &= ~ssl_v2;
+		} else if (strcmp("--no_ssl3", argv[argLoop]) == 0) {
+			options.ssl_versions &= ~ssl_v3;
+		} else if (strcmp("--no_tls1", argv[argLoop]) == 0) {
+			options.ssl_versions &= ~tls_v10;
+		} else if (strcmp("--no_tls11", argv[argLoop]) == 0) {
+			options.ssl_versions &= ~tls_v11;
+		} else if (strcmp("--no_tls12", argv[argLoop]) == 0) {
+			options.ssl_versions &= ~tls_v12;
 
 		} else if (strcmp("--bugs", argv[argLoop]) == 0)
 			options.sslbugs = 1;
