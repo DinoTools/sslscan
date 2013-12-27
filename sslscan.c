@@ -258,6 +258,14 @@ void print_help(char *prog_name)
 	printf("  %s%s [::1]:443%s\n\n", COL_GREEN, prog_name, RESET);
 }
 
+/**
+ * Print the version.
+ */
+void print_version()
+{
+	printf("%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_version, SSLeay_version(SSLEAY_VERSION), RESET);
+}
+
 // Adds Ciphers to the Cipher List structure
 int populateCipherList(struct sslCheckOptions *options, const SSL_METHOD *sslMethod)
 {
@@ -2221,8 +2229,10 @@ int main(int argc, char *argv[])
 			options.noFailed = true;
 
 		// Version
-		else if (strcmp("--version", argv[argLoop]) == 0)
-			mode = mode_version;
+		else if (strcmp("--version", argv[argLoop]) == 0) {
+			print_version();
+			return 0;
+		}
 
 		// XML Output
 		else if (strncmp("--xml=", argv[argLoop], 6) == 0)
@@ -2352,12 +2362,6 @@ int main(int argc, char *argv[])
 
 	switch (mode)
 	{
-		case mode_version:
-			printf("%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_version,
-					SSLeay_version(SSLEAY_VERSION), RESET);
-
-			break;
-
 		// Check a single host/port ciphers...
 		case mode_single:
 		case mode_multiple:
