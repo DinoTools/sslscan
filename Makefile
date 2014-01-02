@@ -1,9 +1,10 @@
 SRCS = sslscan.c
 DESTDIR ?=
-BINPATH ?= /usr/bin/
-MANPATH ?= /usr/share/man/
-CFLAGS ?= -I/usr/local/ssl/include/ -I/usr/local/ssl/include/openssl/
-LDFLAGS ?= -L/usr/local/ssl/lib/
+PREFIX ?= /usr/local
+BINPATH ?= $(PREFIX)/bin/
+MANPATH ?= $(PREFIX)/share/man/
+CFLAGS ?= -I$(PREFIX)/ssl/include/ -I$(PREFIX)/ssl/include/openssl/
+LDFLAGS ?= -L$(PREFIX)/ssl/lib/
 
 CFLAGS_CUSTOM ?= -g -Wall -static-libgcc
 OPENSSL_CUSTOM ?= /home/flowher/openssl-1.0.1e
