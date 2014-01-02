@@ -1,10 +1,10 @@
 SRCS = sslscan.c
 DESTDIR ?=
 PREFIX ?= /usr/local
-BINPATH ?= $(PREFIX)/bin/
-MANPATH ?= $(PREFIX)/share/man/
-CFLAGS ?= -I$(PREFIX)/ssl/include/ -I$(PREFIX)/ssl/include/openssl/
-LDFLAGS ?= -L$(PREFIX)/ssl/lib/
+BINPATH ?= $(PREFIX)/bin
+MANPATH ?= $(PREFIX)/share/man
+CFLAGS ?= -I$(PREFIX)/ssl/include -I$(PREFIX)/ssl/include/openssl
+LDFLAGS ?= -L$(PREFIX)/ssl/lib
 
 CFLAGS_CUSTOM ?= -g -Wall -static-libgcc
 OPENSSL_CUSTOM ?= /home/flowher/openssl-1.0.1e
@@ -14,12 +14,12 @@ all:
 	gcc -g -Wall -lssl -lcrypto -o sslscan $(SRCS) $(LDFLAGS) $(CFLAGS)
 
 install:
-	install -D -m 755 sslscan $(DESTDIR)$(BINPATH)sslscan
-	install -D -m 644 sslscan.1 $(DESTDIR)$(MANPATH)man1/sslscan.1
+	install -D -m 755 sslscan $(DESTDIR)$(BINPATH)/sslscan
+	install -D -m 644 sslscan.1 $(DESTDIR)$(MANPATH)/man1/sslscan.1
 
 uninstall:
-	rm -f $(DESTDIR)$(BINPATH)sslscan
-	rm -f $(DESTDIR)$(MANPATH)man1/sslscan.1
+	rm -f $(DESTDIR)$(BINPATH)/sslscan
+	rm -f $(DESTDIR)$(MANPATH)/man1/sslscan.1
 
 clean:
 	rm -f sslscan
