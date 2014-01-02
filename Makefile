@@ -3,15 +3,20 @@ DESTDIR ?=
 PREFIX ?= /usr/local
 BINPATH ?= $(PREFIX)/bin
 MANPATH ?= $(PREFIX)/share/man
-CFLAGS ?= -I$(PREFIX)/ssl/include -I$(PREFIX)/ssl/include/openssl
-LDFLAGS ?= -L$(PREFIX)/ssl/lib
+
+OPENSSL_LIB ?= $(PREFIX)/ssl/lib
+OPENSSL_INCLUDE ?= $(PREFIX)/ssl/include
+OPENSSL_LDFLAGS ?= -lssl -lcrypto
+
+CFLAGS ?= -g -Wall -I$(OPENSSL_INCLUDE)
+LDFLAGS ?= -L$(OPENSSL_LIB) $(OPENSSL_LDFLAGS)
 
 CFLAGS_CUSTOM ?= -g -Wall -static-libgcc
 OPENSSL_CUSTOM ?= /home/flowher/openssl-1.0.1e
 INC_CUSTOM ?= -I$(OPENSSL_CUSTOM)/include
 
 all:
-	gcc -g -Wall -lssl -lcrypto -o sslscan $(SRCS) $(LDFLAGS) $(CFLAGS)
+	gcc $(CFLAGS) -o sslscan $(SRCS) $(LDFLAGS)
 
 install:
 	install -D -m 755 sslscan $(DESTDIR)$(BINPATH)/sslscan
