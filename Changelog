@@ -7,6 +7,12 @@ Author : xxx
 Changes: The following are a list of changes
          > Added switch --xmpp-domain (Heiko Reese)
 
+Version: 1.10.1
+Date   : 03/01/2013
+Author : Philipp Seidel
+Changes: The following are a list of changes
+         > Makefile improvements (Christian Wiese)
+
 Version: 1.10.0
 Date   : 03/12/2013
 Author : xxx
