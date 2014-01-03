@@ -1,5 +1,5 @@
 Name:           sslscan
-Version:        1.10.0
+Version:        1.10.1
 Release:        1%{?dist}
 Summary:        Security assessment tool for SSL
 
@@ -26,7 +26,7 @@ and is in Text and XML formats.
 
 
 %build
-make %{?_smp_mflags} CFLAGS="$RPM_OPT_FLAGS"
+make %{?_smp_mflags} CFLAGS="$RPM_OPT_FLAGS" LDFLAGS="${LDFLAGS} -lssl -lcrypto"
 
 
 %install
@@ -46,6 +46,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Fri Jan 03 2014 Philipp Seidel <phibo at, dinotools.org> 1.10.1
+- Build with new Makefile
+
 * Tue Dec 03 2013 Philipp Seidel <phibo at, dinotools.org> 1.10.0
 - New release
 
