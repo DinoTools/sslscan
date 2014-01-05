@@ -1148,6 +1148,50 @@ int testRenegotiation(struct sslCheckOptions *options, const SSL_METHOD *sslMeth
 }
 
 /**
+ * Get the name of the ssl method
+ * @param ssl_method The SSL method
+ * @param name Pointer to store the name
+ * @param len Max length in bytes to store name
+ * @return Internal method ID or 0 on failure
+ */
+
+int get_ssl_method_name(const SSL_METHOD *ssl_method, char *name, size_t len)
+{
+	len--;
+	name[len] = '\0';
+#ifndef OPENSSL_NO_SSL2
+	if (ssl_method == SSLv2_client_method()) {
+		strncpy(name, "SSLv2", len);
+		return 1;
+	}
+#endif // #ifndef OPENSSL_NO_SSL2
+	if (ssl_method == SSLv3_client_method()) {
+		strncpy(name, "SSLv3", len);
+		return 2;
+	}
+
+	if (ssl_method == TLSv1_client_method()) {
+		strncpy(name, "TLSv1", len);
+		return 3;
+	}
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	if (ssl_method == TLSv1_1_client_method()) {
+		strncpy(name, "TLS11", len);
+		return 4;
+	}
+
+	if (ssl_method == TLSv1_2_client_method())
+	{
+		strncpy(name, "TLS12", len);
+		return 5;
+	}
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
+	return 0;
+}
+
+/**
  * Test a cipher.
  */
 int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPointer)
@@ -1201,14 +1245,23 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 	// Connect SSL over socket
 	cipherStatus = SSL_connect(ssl);
 
+	char method_name[32];
+	int method_id = get_ssl_method_name(sslCipherPointer->sslMethod, method_name, sizeof(method_name));
+
 #ifdef PYTHON_SUPPORT
 	PyObject *py_tmp;
 	PyObject *py_ciphers;
 
-	py_tmp = Py_BuildValue("{sssz}",
+	py_tmp = Py_BuildValue("{sisiszsssz}",
+		"bits", sslCipherPointer->bits,
+		"method.id", method_id,
+		"method.name", NULL,
 		"name", sslCipherPointer->name,
 		"status", NULL
 	);
+
+	if(method_id > 0)
+		PyDict_SetItemString(py_tmp, "method.name", PyUnicode_FromString(method_name));
 
 	if (cipherStatus == 0)
 		PyDict_SetItemString(py_tmp, "status", PyUnicode_FromString("rejected"));
@@ -2279,6 +2332,8 @@ PyObject *new_client_result(struct sslCheckOptions *options) {
 	PyObject *result;
 	PyObject *tmp;
 	PyObject *tmp2;
+	char method_name[32];
+	int method_id;
 
 	result = PyDict_New();
 
@@ -2288,10 +2343,16 @@ PyObject *new_client_result(struct sslCheckOptions *options) {
 	cipher = options->ciphers;
 	while (cipher != NULL) {
 		// ToDo: add more information
-		tmp2 = Py_BuildValue("{sssi}",
-			"name", cipher->name,
-			"bits", cipher->bits
+		method_id = get_ssl_method_name(cipher->sslMethod, method_name, sizeof(method_name));
+		tmp2 = Py_BuildValue("{sisiszss}",
+			"bits", cipher->bits,
+			"method.id", method_id,
+			"method.name", NULL,
+			"name", cipher->name
 		);
+		if(method_id > 0)
+			PyDict_SetItemString(tmp2, "method.name", PyUnicode_FromString(method_name));
+
 		PyList_Append(tmp, tmp2);
 		cipher = cipher->next;
 	}
