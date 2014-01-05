@@ -1462,7 +1462,7 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 
 
 // Test for preferred ciphers
-int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMethod)
+int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD *ssl_method)
 {
 	// Variables...
 	int cipherStatus;
@@ -1475,153 +1475,177 @@ int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMe
 
 	// Connect to host
 	socketDescriptor = tcpConnect(options);
-	if (socketDescriptor != 0)
-	{
+	if (socketDescriptor == 0)
+		return false;
 
-		// Setup Context Object...
-		options->ctx = SSL_CTX_new(sslMethod);
-		if (options->ctx != NULL)
-		{
-			if (SSL_CTX_set_cipher_list(options->ctx, "ALL:COMPLEMENTOFALL") != 0)
-			{
-
-				// Load Certs if required...
-				if ((options->clientCertsFile != 0) || (options->privateKeyFile != 0))
-					status = loadCerts(options);
-
-				if (status == true)
-				{
-					// Create SSL object...
-					ssl = SSL_new(options->ctx);
-					if (ssl != NULL)
-					{
-						// Connect socket and BIO
-						cipherConnectionBio = BIO_new_socket(socketDescriptor, BIO_NOCLOSE);
-
-						// Connect SSL and BIO
-						SSL_set_bio(ssl, cipherConnectionBio, cipherConnectionBio);
-
-#if OPENSSL_VERSION_NUMBER >= 0x0090806fL && !defined(OPENSSL_NO_TLSEXT)
-						// TLS SNI
-						SSL_set_tlsext_host_name (ssl, options->host);
-#endif
-
-						// Connect SSL over socket
-						cipherStatus = SSL_connect(ssl);
-						if (cipherStatus == 1)
-						{
-#ifndef OPENSSL_NO_SSL2
-							if (sslMethod == SSLv2_client_method())
-							{
-								if (options->xmlOutput != 0)
-									fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"SSLv2\" bits=\"");
-								if (options->pout == true)
-									printf("|| SSLv2 || ");
-								else
-									printf("    SSLv2  ");
-							}
-							else if (sslMethod == SSLv3_client_method())
-#else
-							if (sslMethod == SSLv3_client_method())
-#endif
-							{
-								if (options->xmlOutput != 0)
-									fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"SSLv3\" bits=\"");
-								if (options->pout == true)
-									printf("|| SSLv3 || ");
-								else
-									printf("    SSLv3  ");
-							}
-							else if (sslMethod == TLSv1_client_method())
-							{
-								if (options->xmlOutput != 0)
-									fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLSv1\" bits=\"");
-								if (options->pout == true)
-									printf("|| TLSv1 || ");
-								else
-									printf("    TLSv1  ");
-							}
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-							else if (sslMethod == TLSv1_1_client_method())
-							{
-								if (options->xmlOutput != 0)
-									fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLS11\" bits=\"");
-								if (options->pout == true)
-									printf("|| TLS11 || ");
-								else
-									printf("    TLS11  ");
-							}
-							else if (sslMethod == TLSv1_2_client_method())
-							{
-								if (options->xmlOutput != 0)
-									fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLSv2\" bits=\"");
-								if (options->pout == true)
-									printf("|| TLS12 || ");
-								else
-									printf("    TLS12  ");
-							}
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-
-							if (SSL_get_cipher_bits(ssl, &tempInt2) < 10)
-								tempInt = 2;
-							else if (SSL_get_cipher_bits(ssl, &tempInt2) < 100)
-								tempInt = 1;
-							else
-								tempInt = 0;
-							if (options->pout == true)
-								printf("%d bits || ", SSL_get_cipher_bits(ssl, &tempInt2));
-							else
-								printf("%d bits  ", SSL_get_cipher_bits(ssl, &tempInt2));
-							while (tempInt != 0)
-							{
-								tempInt--;
-								printf(" ");
-							}
-							if (options->xmlOutput != 0)
-								fprintf(options->xmlOutput, "%d\" cipher=\"%s\" />\n", SSL_get_cipher_bits(ssl, &tempInt2), SSL_get_cipher_name(ssl));
-							if (options->pout == true)
-								printf("%s ||\n", SSL_get_cipher_name(ssl));
-							else
-								printf("%s\n", SSL_get_cipher_name(ssl));
-
-							// Disconnect SSL over socket
-							SSL_shutdown(ssl);
-						}
-
-						// Free SSL object
-						SSL_free(ssl);
-					}
-					else
-					{
-						status = false;
-						printf("%s    ERROR: Could create SSL object.%s\n", COL_RED, RESET);
-					}
-				}
-			}
-			else
-			{
-				status = false;
-				printf("%s    ERROR: Could set cipher.%s\n", COL_RED, RESET);
-			}
-
-			// Free CTX Object
-			SSL_CTX_free(options->ctx);
-		}
-
-		// Error Creating Context Object
-		else
-		{
-			status = false;
-			printf("%sERROR: Could not create CTX object.%s\n", COL_RED, RESET);
-		}
-
-		// Disconnect from host
+	// Setup Context Object...
+	options->ctx = SSL_CTX_new(ssl_method);
+	if (options->ctx == NULL) {
+		printf("%sERROR: Could not create CTX object.%s\n", COL_RED, RESET);
 		close(socketDescriptor);
+		return false;
 	}
 
-	// Could not connect
-	else
+	if (SSL_CTX_set_cipher_list(options->ctx, "ALL:COMPLEMENTOFALL") == 0) {
+		printf("%s    ERROR: Could set cipher.%s\n", COL_RED, RESET);
+
+		// Free CTX Object
+		SSL_CTX_free(options->ctx);
+		close(socketDescriptor);
+		return false;
+	}
+
+	// Load Certs if required...
+	if ((options->clientCertsFile != 0) || (options->privateKeyFile != 0)) {
+		if(loadCerts(options) == false) {
+			SSL_CTX_free(options->ctx);
+			close(socketDescriptor);
+			return false;
+		}
+	}
+
+	// Create SSL object...
+	ssl = SSL_new(options->ctx);
+	if (ssl == NULL) {
 		status = false;
+		printf("%s    ERROR: Could create SSL object.%s\n", COL_RED, RESET);
+
+		// Free CTX Object
+		SSL_CTX_free(options->ctx);
+		close(socketDescriptor);
+		return false;
+	}
+
+	// Connect socket and BIO
+	cipherConnectionBio = BIO_new_socket(socketDescriptor, BIO_NOCLOSE);
+
+	// Connect SSL and BIO
+	SSL_set_bio(ssl, cipherConnectionBio, cipherConnectionBio);
+
+#if OPENSSL_VERSION_NUMBER >= 0x0090806fL && !defined(OPENSSL_NO_TLSEXT)
+	// TLS SNI
+	SSL_set_tlsext_host_name (ssl, options->host);
+#endif
+
+	// Connect SSL over socket
+	cipherStatus = SSL_connect(ssl);
+
+	char method_name[32];
+	int method_id = get_ssl_method_name(ssl_method, method_name, sizeof(method_name));
+
+#ifdef PYTHON_SUPPORT
+	PyObject *py_tmp;
+	PyObject *py_ciphers;
+
+	int tmp_bits;
+	SSL_get_cipher_bits(ssl, &tmp_bits);
+
+	if (cipherStatus == 1) {
+		py_tmp = Py_BuildValue("{sisiszss}",
+			"bits", tmp_bits,
+			"method.id", method_id,
+			"method.name", NULL,
+			"name", SSL_get_cipher_name(ssl)
+		);
+
+		if(method_id > 0) {
+			PyDict_SetItemString(py_tmp, "method.name", PyUnicode_FromString(method_name));
+		}
+	} else {
+		// portable None
+		py_tmp = Py_BuildValue("");
+	}
+	py_ciphers = PyDict_GetItemString(options->host_result, "ciphers.default");
+	PyDict_SetItemString(py_ciphers, method_name, py_tmp);
+#endif
+
+	if (cipherStatus == 1)
+	{
+#ifndef OPENSSL_NO_SSL2
+		if (ssl_method == SSLv2_client_method())
+		{
+			if (options->xmlOutput != 0)
+				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"SSLv2\" bits=\"");
+			if (options->pout == true)
+				printf("|| SSLv2 || ");
+			else
+				printf("    SSLv2  ");
+		}
+		else if (ssl_method == SSLv3_client_method())
+#else
+		if (ssl_method == SSLv3_client_method())
+#endif
+		{
+			if (options->xmlOutput != 0)
+				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"SSLv3\" bits=\"");
+			if (options->pout == true)
+				printf("|| SSLv3 || ");
+			else
+				printf("    SSLv3  ");
+		}
+		else if (ssl_method == TLSv1_client_method())
+		{
+			if (options->xmlOutput != 0)
+				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLSv1\" bits=\"");
+			if (options->pout == true)
+				printf("|| TLSv1 || ");
+			else
+				printf("    TLSv1  ");
+		}
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+		else if (ssl_method == TLSv1_1_client_method())
+		{
+			if (options->xmlOutput != 0)
+				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLS11\" bits=\"");
+			if (options->pout == true)
+				printf("|| TLS11 || ");
+			else
+				printf("    TLS11  ");
+		}
+		else if (ssl_method == TLSv1_2_client_method())
+		{
+			if (options->xmlOutput != 0)
+				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLSv2\" bits=\"");
+			if (options->pout == true)
+				printf("|| TLS12 || ");
+			else
+				printf("    TLS12  ");
+		}
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
+		if (SSL_get_cipher_bits(ssl, &tempInt2) < 10)
+			tempInt = 2;
+		else if (SSL_get_cipher_bits(ssl, &tempInt2) < 100)
+			tempInt = 1;
+		else
+			tempInt = 0;
+		if (options->pout == true)
+			printf("%d bits || ", SSL_get_cipher_bits(ssl, &tempInt2));
+		else
+			printf("%d bits  ", SSL_get_cipher_bits(ssl, &tempInt2));
+		while (tempInt != 0)
+		{
+			tempInt--;
+			printf(" ");
+		}
+		if (options->xmlOutput != 0)
+			fprintf(options->xmlOutput, "%d\" cipher=\"%s\" />\n", SSL_get_cipher_bits(ssl, &tempInt2), SSL_get_cipher_name(ssl));
+		if (options->pout == true)
+			printf("%s ||\n", SSL_get_cipher_name(ssl));
+		else
+			printf("%s\n", SSL_get_cipher_name(ssl));
+
+		// Disconnect SSL over socket
+		SSL_shutdown(ssl);
+	}
+
+	// Free SSL object
+	SSL_free(ssl);
+
+	// Free CTX Object
+	SSL_CTX_free(options->ctx);
+
+	close(socketDescriptor);
 
 	return status;
 }
@@ -2221,19 +2245,19 @@ int testHost(struct sslCheckOptions *options)
 
 #ifndef OPENSSL_NO_SSL2
 		if (options->ssl_versions & ssl_v2)
-			status = defaultCipher(options, SSLv2_client_method());
+			status = test_default_cipher(options, SSLv2_client_method());
 #endif
 
 		if (options->ssl_versions & ssl_v3)
-			status = defaultCipher(options, SSLv3_client_method());
+			status = test_default_cipher(options, SSLv3_client_method());
 		if (options->ssl_versions & tls_v10)
-			status = defaultCipher(options, TLSv1_client_method());
+			status = test_default_cipher(options, TLSv1_client_method());
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 		if (options->ssl_versions & tls_v11)
-			status = defaultCipher(options, TLSv1_1_client_method());
+			status = test_default_cipher(options, TLSv1_1_client_method());
 		if (options->ssl_versions & tls_v12)
-			status = defaultCipher(options, TLSv1_2_client_method());
+			status = test_default_cipher(options, TLSv1_2_client_method());
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
 	}
@@ -2368,7 +2392,7 @@ PyObject *new_host_result() {
 	PyObject *tmp;
 	tmp = PyDict_New();
 	PyDict_SetItemString(tmp, "ciphers", (PyObject *)PyList_New(0));
-	PyDict_SetItemString(tmp, "ciphers_default", (PyObject *)PyDict_New());
+	PyDict_SetItemString(tmp, "ciphers.default", (PyObject *)PyDict_New());
 	PyDict_SetItemString(tmp, "certificate.blob", (PyObject *)Py_None);
 	return tmp;
 }
