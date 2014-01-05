@@ -1,25 +1,19 @@
-
 sslscan.dSYM/Contents/Resources/DWARF/sslscan
-
 sslscan.dSYM/Contents/Info.plist
-
 sslscan.c.BAK
 
-sslscan
-
 Debug/vc100.pdb
-
 Debug/vc100.idb
-
 Debug/sslscan.unsuccessfulbuild
-
 Debug/sslscan.log
-
 Debug/sslscan.lastbuildstate
-
 Debug/cl.command.1.tlog
-
 Debug/CL.write.1.tlog
-
 Debug/CL.read.1.tlog
 
+/sslscan
+*.pyc
+__pycache_
+*.swp
+*.swo
+*.*~
