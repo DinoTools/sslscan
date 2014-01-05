@@ -12,6 +12,9 @@ INC_CUSTOM ?= -I$(OPENSSL_CUSTOM)/include
 all:
 	gcc -g -Wall -lssl -lcrypto -o sslscan $(SRCS) $(LDFLAGS) $(CFLAGS)
 
+all_python:
+	gcc -g -Wall -lssl -lcrypto -o sslscan $(SRCS) $(LDFLAGS) $(CFLAGS) -DPYTHON_SUPPORT=1 $(shell python3-config --ldflags) $(shell python3-config --cflags)
+
 install:
 	install -D -m 755 sslscan $(DESTDIR)$(BINPATH)sslscan
 	install -D -m 644 sslscan.1 $(DESTDIR)$(MANPATH)man1/sslscan.1

@@ -86,6 +86,10 @@ DWORD dwError;
 #include <netinet/in.h>
 #endif
 
+#ifdef PYTHON_SUPPORT
+#include <Python.h>
+#endif
+
 // Defines...
 #define false 0
 #define true 1
@@ -191,6 +195,11 @@ struct sslCheckOptions
 	char *clientCertsFile;
 	char *privateKeyFile;
 	char *privateKeyPassword;
+#ifdef PYTHON_SUPPORT
+	PyObject *host_result;
+	PyObject *py_output_handler;
+	PyObject *py_service_handler;
+#endif
 };
 
 // store renegotiation test data
@@ -1191,6 +1200,26 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 
 	// Connect SSL over socket
 	cipherStatus = SSL_connect(ssl);
+
+#ifdef PYTHON_SUPPORT
+	PyObject *py_tmp;
+	PyObject *py_ciphers;
+
+	py_tmp = Py_BuildValue("{sssz}",
+		"name", sslCipherPointer->name,
+		"status", NULL
+	);
+
+	if (cipherStatus == 0)
+		PyDict_SetItemString(py_tmp, "status", PyUnicode_FromString("rejected"));
+	else if(cipherStatus == 1)
+		PyDict_SetItemString(py_tmp, "status", PyUnicode_FromString("accepted"));
+	else
+		PyDict_SetItemString(py_tmp, "status", PyUnicode_FromString("failed"));
+
+	py_ciphers = PyDict_GetItemString(options->host_result, "ciphers");
+	PyList_Append(py_ciphers, py_tmp);
+#endif
 
 	// Show Cipher Status
 	if (!((options->noFailed == true) && (cipherStatus != 1)))
@@ -2242,6 +2271,48 @@ void init_ssl(struct sslCheckOptions *options)
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 }
 
+#ifdef PYTHON_SUPPORT
+/**
+ * Create python client result object
+ */
+PyObject *new_client_result(struct sslCheckOptions *options) {
+	PyObject *result;
+	PyObject *tmp;
+	PyObject *tmp2;
+
+	result = PyDict_New();
+
+	// Add cipher list
+	tmp = PyList_New(0);
+	struct sslCipher *cipher;
+	cipher = options->ciphers;
+	while (cipher != NULL) {
+		// ToDo: add more information
+		tmp2 = Py_BuildValue("{sssi}",
+			"name", cipher->name,
+			"bits", cipher->bits
+		);
+		PyList_Append(tmp, tmp2);
+		cipher = cipher->next;
+	}
+	PyDict_SetItemString(result, "ciphers", tmp);
+
+	return result;
+}
+
+/**
+ * Create python server result object
+ */
+PyObject *new_host_result() {
+	PyObject *tmp;
+	tmp = PyDict_New();
+	PyDict_SetItemString(tmp, "ciphers", (PyObject *)PyList_New(0));
+	PyDict_SetItemString(tmp, "ciphers_default", (PyObject *)PyDict_New());
+	PyDict_SetItemString(tmp, "certificate.blob", (PyObject *)Py_None);
+	return tmp;
+}
+#endif
+
 /**
  * Run all tests
  */
@@ -2250,6 +2321,10 @@ int run_tests(struct sslCheckOptions *options)
 	FILE *fp;
 	char line[1024];
 	int status = 0;
+
+#ifdef PYTHON_SUPPORT
+	PyObject *result_list = PyList_New(0);
+#endif
 
 	if (options->targets != NULL) {
 		if (fileExists(options->targets) == false) {
@@ -2272,23 +2347,54 @@ int run_tests(struct sslCheckOptions *options)
 				parseHostString(line, options);
 
 				// Test the host...
+#ifdef PYTHON_SUPPORT
+				options->host_result = new_host_result();
+#endif
 				status = testHost(options);
 				if(!status) {
 					// print error and continue
 					printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options->host, RESET);
+				} else {
+#ifdef PYTHON_SUPPORT
+					PyList_Append(result_list, options->host_result);
+#endif
 				}
 			}
 			readLine(fp, line, sizeof(line));
 		}
 
 	} else {
+#ifdef PYTHON_SUPPORT
+		options->host_result = new_host_result();
+#endif
 		status = testHost(options);
 		if(!status) {
 			printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options->host, RESET);
 			// ToDo:
 			return 1;
+		} else {
+#ifdef PYTHON_SUPPORT
+			PyList_Append(result_list, options->host_result);
+#endif
 		}
 	}
+#ifdef PYTHON_SUPPORT
+	// ToDo: Clean up
+	PyObject *client_result = new_client_result(options);
+	if (options->py_output_handler == NULL) {
+		printf("Error: No python output handler found");
+		// ToDo:
+		return 1;
+	}
+	PyObject *py_func = PyObject_GetAttrString(options->py_output_handler, "run");
+	PyObject *py_args = PyTuple_New(2);
+	PyTuple_SetItem(py_args, 0, client_result);
+	PyTuple_SetItem(py_args, 1, result_list);
+	PyObject *py_result = PyObject_CallObject(py_func, py_args);
+	if(py_result == NULL) {
+		PyErr_Print();
+	}
+#endif
 	return 0;
 }
 
@@ -2325,6 +2431,31 @@ int main(int argc, char *argv[])
 	options.ssl_versions = ssl_all;
 	options.pout = false;
 	SSL_library_init();
+
+#ifdef PYTHON_SUPPORT
+	wchar_t progname[255 + 1];
+	mbstowcs(progname, argv[0], strlen(argv[0]) + 1);
+	Py_SetProgramName(progname);
+	Py_Initialize();
+	PyObject *py_tmp = PySys_GetObject("path");
+	PyList_Append(py_tmp, PyUnicode_FromString("./python"));
+	PyObject *py_module = PyImport_ImportModule("sslscan");
+
+	PyObject *py_func = PyObject_GetAttrString(py_module, "load_handlers");
+	PyObject *py_args = PyTuple_New(0);
+	PyObject *py_result = PyObject_CallObject(py_func, py_args);
+
+	if(py_result == NULL) {
+		PyErr_Print();
+	}
+	if (py_module == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
+	}
+	options.py_output_handler = PyObject_GetAttrString(py_module, "output");
+	options.py_service_handler = PyObject_GetAttrString(py_module, "service");
+#endif
 
 	// Get program parameters
 	for (argLoop = 1; argLoop < argc; argLoop++)
@@ -2459,12 +2590,27 @@ int main(int argc, char *argv[])
 			options.sslbugs = 1;
 
 		// SSL HTTP Get...
-		else if (strcmp("--http", argv[argLoop]) == 0)
+		else if (strcmp("--http", argv[argLoop]) == 0) {
 			options.http = 1;
 
+#ifdef PYTHON_SUPPORT
+		} else if (strncmp("--output=", argv[argLoop], 9) == 0) {
+			if(options.py_output_handler == NULL) {
+				printf("No output handler");
+				continue;
+			}
+
+			PyObject *py_func = PyObject_GetAttrString(options.py_output_handler, "load_from_string");
+			PyObject *py_args = PyTuple_New(1);
+			PyTuple_SetItem(py_args, 0, PyUnicode_FromString(argv[argLoop] + 9));
+			PyObject *py_result = PyObject_CallObject(py_func, py_args);
+			if(py_result == NULL) {
+				PyErr_Print();
+			}
+
+#endif
 		// Host (maybe port too)...
-		else if (argLoop + 1 == argc)
-		{
+		} else if (argLoop + 1 == argc) {
 			mode = mode_single;
 
 			// Get host...
@@ -2512,6 +2658,10 @@ int main(int argc, char *argv[])
 		fprintf(options.xmlOutput, "</document>\n");
 		fclose(options.xmlOutput);
 	}
+
+#ifdef PYTHON_SUPPORT
+	Py_Finalize();
+#endif
 
 	return status;
 }
