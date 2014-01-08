@@ -145,6 +145,7 @@ struct sslCipher
     int bits;
     char description[512];
     const SSL_METHOD *sslMethod;
+    const char *sslMethodName;
     struct sslCipher *next;
 };
 
@@ -246,6 +247,33 @@ int populateCipherList(struct sslCheckOptions *options, const SSL_METHOD *sslMet
 
         // Add cipher information...
         sslCipherPointer->sslMethod = sslMethod;
+
+#ifndef OPENSSL_NO_SSL2
+        if (sslCipherPointer->sslMethod == SSLv2_client_method())
+        {
+            sslCipherPointer->sslMethodName = "SSLv2";
+        }
+        else if (sslCipherPointer->sslMethod == SSLv3_client_method())
+#else
+        if (sslCipherPointer->sslMethod == SSLv3_client_method())
+#endif
+        {
+            sslCipherPointer->sslMethodName = "SSLv3";
+        }
+        else if (sslCipherPointer->sslMethod == TLSv1_client_method())
+        {
+            sslCipherPointer->sslMethodName = "TLSv1";
+        }
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+        else if (sslCipherPointer->sslMethod == TLSv1_1_client_method())
+        {
+            sslCipherPointer->sslMethodName = "TLS11";
+        }
+        else if (sslCipherPointer->sslMethod == TLSv1_2_client_method())
+        {
+            sslCipherPointer->sslMethodName = "TLS12";
+        }
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
         sslCipherPointer->name = SSL_CIPHER_get_name(sk_SSL_CIPHER_value(cipherList, loop));
         sslCipherPointer->version = SSL_CIPHER_get_version(sk_SSL_CIPHER_value(cipherList, loop));
         SSL_CIPHER_description(sk_SSL_CIPHER_value(cipherList, loop), sslCipherPointer->description, sizeof(sslCipherPointer->description) - 1);
@@ -1128,58 +1156,14 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
                         }
                     }
                     if (options->xmlOutput != 0)
+                    {
                         fprintf(options->xmlOutput, " sslversion=\"");
-#ifndef OPENSSL_NO_SSL2
-                    if (sslCipherPointer->sslMethod == SSLv2_client_method())
-                    {
-                        if (options->xmlOutput != 0)
-                            fprintf(options->xmlOutput, "SSLv2\" bits=\"");
-                        if (options->pout == true)
-                            printf("SSLv2 || ");
-                        else
-                            printf("SSLv2  ");
+                        fprintf(options->xmlOutput, "%s\" bits=\"", sslCipherPointer->sslMethodName);
                     }
-                    else if (sslCipherPointer->sslMethod == SSLv3_client_method())
-#else
-                    if (sslCipherPointer->sslMethod == SSLv3_client_method())
-#endif
-                    {
-                        if (options->xmlOutput != 0)
-                            fprintf(options->xmlOutput, "SSLv3\" bits=\"");
-                        if (options->pout == true)
-                            printf("SSLv3 || ");
-                        else
-                            printf("SSLv3  ");
-                    }
-                    else if (sslCipherPointer->sslMethod == TLSv1_client_method())
-                    {
-                        if (options->xmlOutput != 0)
-                            fprintf(options->xmlOutput, "TLSv1\" bits=\"");
-                        if (options->pout == true)
-                            printf("TLSv1 || ");
-                        else
-                            printf("TLSv1  ");
-                    }
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-                    else if (sslCipherPointer->sslMethod == TLSv1_1_client_method())
-                    {
-                        if (options->xmlOutput != 0)
-                            fprintf(options->xmlOutput, "TLS11\" bits=\"");
-                        if (options->pout == true)
-                            printf("TLS11 || ");
-                        else
-                            printf("TLS11  ");
-                    }
-                    else if (sslCipherPointer->sslMethod == TLSv1_2_client_method())
-                    {
-                        if (options->xmlOutput != 0)
-                            fprintf(options->xmlOutput, "TLS12\" bits=\"");
-                        if (options->pout == true)
-                            printf("TLS12 || ");
-                        else
-                            printf("TLS12  ");
-                    }
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+                    if (options->pout == true)
+                        printf("%s || ", sslCipherPointer->sslMethodName);
+                    else
+                        printf("%s  ", sslCipherPointer->sslMethodName);
 
                     if (sslCipherPointer->bits < 10)
                         tempInt = 2;
@@ -1857,6 +1841,7 @@ int testHost(struct sslCheckOptions *options)
     // Variables...
     struct sslCipher *sslCipherPointer;
     int status = true;
+    const SSL_METHOD *sslMethod = NULL;
 
     // set default port if service is not given
     if (strlen(options->service) == 0)
@@ -1930,6 +1915,11 @@ int testHost(struct sslCheckOptions *options)
     printf("  %sSupported Client Cipher(s):%s\n", COL_BLUE, RESET);
     while ((sslCipherPointer != 0) && (status == true))
     {
+        if (sslCipherPointer->sslMethod != sslMethod)
+        {
+            printf("%s:\n", sslCipherPointer->sslMethodName);
+            sslMethod = sslCipherPointer->sslMethod;
+        }
         printf("    %s\n",sslCipherPointer->name);
 
         if (options->xmlOutput != 0)
