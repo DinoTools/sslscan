@@ -1155,7 +1155,8 @@ int testCipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoint
                                 printf("    Failed    ");
                         }
                     }
-                    if (options->xmlOutput != 0) {
+                    if (options->xmlOutput != 0)
+                    {
                         fprintf(options->xmlOutput, " sslversion=\"");
                         fprintf(options->xmlOutput, "%s\" bits=\"", sslCipherPointer->sslMethodName);
                     }
@@ -1840,7 +1841,7 @@ int testHost(struct sslCheckOptions *options)
     // Variables...
     struct sslCipher *sslCipherPointer;
     int status = true;
-    SSL_METHOD *sslMethod = NULL;
+    const SSL_METHOD *sslMethod = NULL;
 
     // set default port if service is not given
     if (strlen(options->service) == 0)
