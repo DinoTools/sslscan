@@ -86,6 +86,7 @@ DWORD dwError;
 #include <netinet/in.h>
 #endif
 
+#define PYTHON_SUPPORT
 #ifdef PYTHON_SUPPORT
 #include <Python.h>
 #endif
@@ -1660,6 +1661,7 @@ int get_certificate(struct sslCheckOptions *options)
 	int socketDescriptor = 0;
 	SSL *ssl = NULL;
 	BIO *cipherConnectionBio = NULL;
+	BIO *bp;
 	BIO *stdoutBIO = NULL;
 	BIO *fileBIO = NULL;
 	X509 *x509Cert = NULL;
@@ -1669,9 +1671,12 @@ int get_certificate(struct sslCheckOptions *options)
 	X509_EXTENSION *extension = NULL;
 	char buffer[1024];
 	long tempLong = 0;
+	int tmp_int;
+	long tmp_long;
+	char *tmp_buffer_ptr = NULL;
 	int tempInt = 0;
 	int tempInt2 = 0;
-	long verifyError = 0;
+	long verify_status = 0;
 
 	// Connect to host
 	socketDescriptor = tcpConnect(options);
@@ -1798,155 +1803,50 @@ int get_certificate(struct sslCheckOptions *options)
 		return true;
 	}
 
-	// Print a base64 blob version of the cert
-	printf("    Certificate blob:\n");
-	PEM_write_bio_X509(stdoutBIO,x509Cert);
-	if (options->xmlOutput != 0)
-	{
-		fprintf(options->xmlOutput, "   <certificate-blob>\n");
-		PEM_write_bio_X509(fileBIO,x509Cert);
-		fprintf(options->xmlOutput, "   </certificate-blob>\n");
+	PyObject *py_module = PyImport_ImportModule("sslscan.ssl");
+	if (py_module == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
 	}
+	PyObject *py_func = PyObject_GetAttrString(py_module, "X509");
+	if(py_func == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
+	}
+	PyObject *py_args = PyTuple_New(1);
+	PyTuple_SetItem(py_args, 0, PyCapsule_New((void*) x509Cert, "x509", NULL));
+	PyObject *py_result = PyObject_CallObject(py_func, py_args);
+	if(py_result == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
+	}
+	PyDict_SetItemString(options->host_result, "certificate.x509", py_result);
+
 
 	//SSL_set_verify(ssl, SSL_VERIFY_NONE|SSL_VERIFY_CLIENT_ONCE, NULL);
 
-	// Cert Version
-	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_VERSION)) {
-		tempLong = X509_get_version(x509Cert);
-		printf("    Version: %lu\n", tempLong);
-		if (options->xmlOutput != 0)
-			fprintf(options->xmlOutput, "   <version>%lu</version>\n", tempLong);
-	}
-
-	// Cert Serial No. - Code adapted from OpenSSL's crypto/asn1/t_x509.c
-	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_SERIAL))
-	{
-		ASN1_INTEGER *bs;
-		BIO *bp;
-		BIO *xml_bp;
-		bp = BIO_new_fp(stdout, BIO_NOCLOSE);
-		if (options->xmlOutput != 0)
-			xml_bp = BIO_new_fp(options->xmlOutput, BIO_NOCLOSE);
-		long l;
-		int i;
-		const char *neg;
-		bs=X509_get_serialNumber(x509Cert);
-
-		if (BIO_write(bp,"    Serial Number:",18) <= 0)
-			return(1);
-
-		if (bs->length <= 4)
-		{
-			l=ASN1_INTEGER_get(bs);
-			if (l < 0)
-			{
-				l= -l;
-				neg="-";
-			}
-			else
-				neg="";
-			if (BIO_printf(bp," %s%lu (%s0x%lx)\n",neg,l,neg,l) <= 0)
-				return(1);
-			if (options->xmlOutput != 0)
-				if (BIO_printf(xml_bp,"   <serial>%s%lu (%s0x%lx)</serial>\n",neg,l,neg,l) <= 0)
-					return(1);
-		}
-		else
-		{
-			neg=(bs->type == V_ASN1_NEG_INTEGER)?" (Negative)":"";
-			if (BIO_printf(bp,"%1s%s","",neg) <= 0)
-				return(1);
-
-			if (options->xmlOutput != 0)
-				if (BIO_printf(xml_bp,"   <serial>") <= 0)
-					return(1);
-
-			for (i=0; i<bs->length; i++)
-			{
-				if (BIO_printf(bp,"%02x%c",bs->data[i],
-							((i+1 == bs->length)?'\n':':')) <= 0)
-					return(1);
-				if (options->xmlOutput != 0) {
-					if (i+1 == bs->length)
-					{
-						if (BIO_printf(xml_bp,"%02x",bs->data[i]) <= 0)
-							return(1);
-					}
-					else
-					{
-						if (BIO_printf(xml_bp,"%02x%c",bs->data[i], ':') <= 0)
-							return(1);
-					}
-				}
-			}
-
-			if (options->xmlOutput != 0)
-				if (BIO_printf(xml_bp,"</serial>\n") <= 0)
-					return(1);
-
-		}
-		if(NULL != bp)
-			BIO_free(bp);
-		// We don't free the xml_bp because it will be used in the future
-	}
-
-	// Signature Algo...
-	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_SIGNAME))
-	{
-		printf("    Signature Algorithm: ");
-		i2a_ASN1_OBJECT(stdoutBIO, x509Cert->cert_info->signature->algorithm);
-		printf("\n");
-		if (options->xmlOutput != 0)
-		{
-			fprintf(options->xmlOutput, "   <signature-algorithm>");
-			i2a_ASN1_OBJECT(fileBIO, x509Cert->cert_info->signature->algorithm);
-			fprintf(options->xmlOutput, "</signature-algorithm>\n");
-		}
-	}
-
-	// SSL Certificate Issuer...
-	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_ISSUER))
-	{
-		X509_NAME_oneline(X509_get_issuer_name(x509Cert), buffer, sizeof(buffer) - 1);
-		printf("    Issuer: %s\n", buffer);
-		if (options->xmlOutput != 0)
-			fprintf(options->xmlOutput, "   <issuer>%s</issuer>\n", buffer);
-	}
-
-	// Validity...
-	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_VALIDITY))
-	{
-		printf("    Not valid before: ");
-		ASN1_TIME_print(stdoutBIO, X509_get_notBefore(x509Cert));
-		if (options->xmlOutput != 0)
-		{
-			fprintf(options->xmlOutput, "   <not-valid-before>");
-			ASN1_TIME_print(fileBIO, X509_get_notBefore(x509Cert));
-			fprintf(options->xmlOutput, "</not-valid-before>\n");
-		}
-		printf("\n    Not valid after: ");
-		ASN1_TIME_print(stdoutBIO, X509_get_notAfter(x509Cert));
-		printf("\n");
-		if (options->xmlOutput != 0)
-		{
-			fprintf(options->xmlOutput, "   <not-valid-after>");
-			ASN1_TIME_print(fileBIO, X509_get_notAfter(x509Cert));
-			fprintf(options->xmlOutput, "</not-valid-after>\n");
-		}
-	}
-
-	// SSL Certificate Subject...
-	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_SUBJECT))
-	{
-		X509_NAME_oneline(X509_get_subject_name(x509Cert), buffer, sizeof(buffer) - 1);
-		printf("    Subject: %s\n", buffer);
-		if (options->xmlOutput != 0)
-			fprintf(options->xmlOutput, "   <subject>%s</subject>\n", buffer);
-	}
-
 	// Public Key Algo...
-	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_PUBKEY))
-	{
+	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_PUBKEY)) {
+		bp = BIO_new(BIO_s_mem());
+		if (bp) {
+			if (i2a_ASN1_OBJECT(bp, x509Cert->cert_info->key->algor->algorithm) > 0) {
+				tmp_long = BIO_get_mem_data(bp, &tmp_buffer_ptr);
+				PyDict_SetItemString(options->host_result, "certificate.public_key.algorithm", PyUnicode_FromStringAndSize(tmp_buffer_ptr, tmp_long));
+			}
+			if(tmp_buffer_ptr != NULL) {
+				free(tmp_buffer_ptr);
+				tmp_buffer_ptr = NULL;
+			}
+			BIO_set_close(bp, BIO_NOCLOSE);
+			BIO_free(bp);
+			
+		}
+
+
+
 		printf("    Public Key Algorithm: ");
 		i2a_ASN1_OBJECT(stdoutBIO, x509Cert->cert_info->key->algor->algorithm);
 		printf("\n");
@@ -1959,14 +1859,10 @@ int get_certificate(struct sslCheckOptions *options)
 
 		// Public Key...
 		publicKey = X509_get_pubkey(x509Cert);
-		if (publicKey == NULL)
-		{
-			printf("    Public Key: Could not load\n");
-			if (options->xmlOutput != 0)
-				fprintf(options->xmlOutput, "   <pk error=\"true\" />\n");
-		}
-		else
-		{
+		PEM_write_bio_PUBKEY(stdoutBIO, publicKey);
+		if (publicKey == NULL) {
+			PyDict_SetItemString(options->host_result, "certificate.public_key.data", Py_BuildValue(""));
+		} else {
 			switch (publicKey->type)
 			{
 				case EVP_PKEY_RSA:
@@ -2083,18 +1979,17 @@ int get_certificate(struct sslCheckOptions *options)
 	}
 
 	// Verify Certificate...
-	printf("  Verify Certificate:\n");
-	verifyError = SSL_get_verify_result(ssl);
-	if (verifyError == X509_V_OK)
-		printf("    Certificate passed verification\n");
-	else
-		printf("    %s\n", X509_verify_cert_error_string(verifyError));
+	verify_status = SSL_get_verify_result(ssl);
+	if (verify_status == X509_V_OK) {
+		PyDict_SetItemString(options->host_result, "certificate.verify.status", PyLong_FromLong(true));
+		PyDict_SetItemString(options->host_result, "certificate.verify.error_message", PyUnicode_FromString(""));
+	} else {
+		PyDict_SetItemString(options->host_result, "certificate.verify.status", PyLong_FromLong(false));
+		PyDict_SetItemString(options->host_result, "certificate.verify.error_message", PyUnicode_FromString(X509_verify_cert_error_string(verify_status)));
+	}
 
 	// Free X509 Certificate...
-	X509_free(x509Cert);
-
-	if (options->xmlOutput != 0)
-		fprintf(options->xmlOutput, "  </certificate>\n");
+	//X509_free(x509Cert);
 
 	// Free BIO
 	BIO_free(stdoutBIO);
@@ -2539,17 +2434,24 @@ int main(int argc, char *argv[])
 	Py_SetProgramName(progname);
 	Py_Initialize();
 	PyObject *py_tmp = PySys_GetObject("path");
-	PyList_Append(py_tmp, PyUnicode_FromString("./python"));
+	//PyList_Append(py_tmp, PyUnicode_FromString("./python"));
 	PyObject *py_module = PyImport_ImportModule("sslscan");
+	if (py_module == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
+	}
 
 	PyObject *py_func = PyObject_GetAttrString(py_module, "load_handlers");
+	if(py_func == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
+	}
 	PyObject *py_args = PyTuple_New(0);
 	PyObject *py_result = PyObject_CallObject(py_func, py_args);
 
 	if(py_result == NULL) {
-		PyErr_Print();
-	}
-	if (py_module == NULL) {
 		PyErr_Print();
 		// ToDo:
 		return 1;
