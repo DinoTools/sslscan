@@ -47,8 +47,16 @@ class OutputManager(object):
         self.registered[name] = cls
 
     def run(self, client, host_results):
-        for h in self.active:
+        handlers = self.active
+        if len(handlers) == 0:
+            tmp = self.registered.get("legacy", None)
+            if tmp is None:
+                return 1
+            handlers = [tmp()]
+
+        for h in handlers:
             h.run(client, host_results)
+        return 0
 
 class ServiceManager(object):
     def __init__(self):
