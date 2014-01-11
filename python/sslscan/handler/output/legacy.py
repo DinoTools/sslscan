@@ -2,6 +2,11 @@ from sslscan import output
 from sslscan.handler import Output
 
 class Legacy(Output):
+    short_description = "Legacy output (sslscan < 1.11)"
+    description = """
+    Support legacy output format
+    """
+
     def __init__(self, foo=""):
         print(foo)
 
