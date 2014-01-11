@@ -22,6 +22,24 @@ class OutputManager(object):
         name, sep, config_string = data.partition(":")
         return self.load_handler(name, config_string)
 
+    def print_help(self, name=None):
+        names = [name]
+        if name is None:
+            names = list(self.registered.keys())
+        for n in names:
+            text = getattr(self.registered[n], "description", "")
+            print(n)
+            print(text)
+        return 0
+
+    def print_list(self):
+        names = list(self.registered.keys())
+        names.sort()
+        for name in names:
+            text = getattr(self.registered[name], "short_description", "")
+            print("%.10s - %s" % (name, text))
+        return 0
+
     def register(self, name, cls):
         if name in self.registered:
             # ToDo: error handling

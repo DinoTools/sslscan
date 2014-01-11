@@ -90,6 +90,7 @@ DWORD dwError;
 #ifdef PYTHON_SUPPORT
 #include <Python.h>
 #endif
+#include "helper.h"
 
 // Defines...
 #define false 0
@@ -273,6 +274,10 @@ void print_help(char *prog_name)
 	printf("  %s--verbose%s            Display verbose output.\n", COL_GREEN, RESET);
 	printf("  %s--help%s               Display the  help text  you are  now\n", COL_GREEN, RESET);
 	printf("                       reading.\n");
+	printf("  %s--help-output=<name>%s Print help for a single output handler and exit\n", COL_GREEN, RESET);
+	printf("  %s--help-outputs%s       Print help for all output handlers and exit\n", COL_GREEN, RESET);
+	printf("  %s--help-output-list%s   List all output handlers with a short description\n", COL_GREEN, RESET);
+	printf("\n");
 	printf("%sExamples:%s\n", COL_BLUE, RESET);
 	printf("  %s%s 127.0.0.1%s\n", COL_GREEN, prog_name, RESET);
 	printf("  %s%s 127.0.0.1:443%s\n", COL_GREEN, prog_name, RESET);
@@ -2466,6 +2471,13 @@ int main(int argc, char *argv[])
 		if (strcmp("--help", argv[argLoop]) == 0) {
 			print_help(argv[0]);
 			return 0;
+		} else if ((strncmp("--help-output=", argv[argLoop], 14) == 0) && (strlen(argv[argLoop]) > 14)) {
+			py_tmp = Py_BuildValue("(s)", argv[argLoop] + 14);
+			return py_call_function(options.py_output_handler, "print_help", py_tmp, NULL);
+		} else if (strcmp("--help-outputs", argv[argLoop]) == 0) {
+			return py_call_function(options.py_output_handler, "print_help", NULL, NULL);
+		} else if (strcmp("--help-output-list", argv[argLoop]) == 0) {
+			return py_call_function(options.py_output_handler, "print_list", NULL, NULL);
 		} else if ((strncmp("--targets=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10)) {
 			options.targets = argv[argLoop] + 10;
 		}
