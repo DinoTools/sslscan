@@ -6,6 +6,8 @@ include_directories(
 
 set(sslscan_SRCS
 	main.c
+	helper.c
+	helper.h
 )
 
 add_executable (sslscan ${sslscan_SRCS})
