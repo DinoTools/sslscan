@@ -477,23 +477,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// Open XML file output...
-	if ((xmlArg > 0) && (mode != mode_help))
-	{
-		options.xmlOutput = fopen(argv[xmlArg] + 6, "w");
-		if (options.xmlOutput == NULL)
-		{
-			printf("%sERROR: Could not open XML output file %s.%s\n", COL_RED, argv[xmlArg] + 6, RESET);
-			exit(0);
-		}
-
-		// Output file header...
-		fprintf(options.xmlOutput, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document title=\"SSLScan Results\" version=\"%s\" web=\"http://www.titania.co.uk\">\n", xml_version);
-	}
-
 	printf("%s%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_banner, program_version,
 			SSLeay_version(SSLEAY_VERSION), RESET);
-
 
 	init_ssl(&options);
 
@@ -505,13 +490,6 @@ int main(int argc, char *argv[])
 		sslCipherPointer = options.ciphers->next;
 		free(options.ciphers);
 		options.ciphers = sslCipherPointer;
-	}
-
-	// Close XML file, if required...
-	if ((xmlArg > 0) && (mode != mode_help))
-	{
-		fprintf(options.xmlOutput, "</document>\n");
-		fclose(options.xmlOutput);
 	}
 
 #ifdef PYTHON_SUPPORT
