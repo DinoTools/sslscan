@@ -26,6 +26,7 @@ class OutputManager(object):
         names = [name]
         if name is None:
             names = list(self.registered.keys())
+        names.sort()
         for n in names:
             text = getattr(self.registered[n], "description", "")
             print(n)
