@@ -156,7 +156,6 @@ void print_version()
 int populate_ciphers(struct sslCheckOptions *options, const SSL_METHOD *ssl_method)
 {
 	struct sslCipher *cipher_ptr;
-	int tmp_int;
 	int i;
 	// STACK_OF is a sign that you should be using C++ :)
 	STACK_OF(SSL_CIPHER) *cipher_list;
@@ -204,7 +203,7 @@ int populate_ciphers(struct sslCheckOptions *options, const SSL_METHOD *ssl_meth
 		cipher_ptr->name = SSL_CIPHER_get_name(sk_SSL_CIPHER_value(cipher_list, i));
 		cipher_ptr->version = SSL_CIPHER_get_version(sk_SSL_CIPHER_value(cipher_list, i));
 		SSL_CIPHER_description(sk_SSL_CIPHER_value(cipher_list, i), cipher_ptr->description, sizeof(cipher_ptr->description) - 1);
-		cipher_ptr->bits = SSL_CIPHER_get_bits(sk_SSL_CIPHER_value(cipher_list, i), &tmp_int);
+		cipher_ptr->bits = SSL_CIPHER_get_bits(sk_SSL_CIPHER_value(cipher_list, i), &cipher_ptr->alg_bits);
 	}
 
 	SSL_free(ssl);

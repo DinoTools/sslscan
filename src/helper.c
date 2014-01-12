@@ -108,8 +108,9 @@ PyObject *new_client_result(struct sslCheckOptions *options) {
 	while (cipher != NULL) {
 		// ToDo: add more information
 		method_id = get_ssl_method_name(cipher->sslMethod, method_name, sizeof(method_name));
-		tmp2 = Py_BuildValue("{sisiszss}",
+		tmp2 = Py_BuildValue("{sisisiszss}",
 			"bits", cipher->bits,
+			"algorithm_bits", cipher->alg_bits,
 			"method.id", method_id,
 			"method.name", NULL,
 			"name", cipher->name

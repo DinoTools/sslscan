@@ -82,6 +82,7 @@ struct sslCipher
 	const char *name;
 	char *version;
 	int bits;
+	int alg_bits;
 	char description[512];
 	const SSL_METHOD *sslMethod;
 	struct sslCipher *next;
