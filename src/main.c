@@ -146,67 +146,71 @@ void print_version()
 	printf("%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_version, SSLeay_version(SSLEAY_VERSION), RESET);
 }
 
-// Adds Ciphers to the Cipher List structure
-int populateCipherList(struct sslCheckOptions *options, const SSL_METHOD *sslMethod)
+/**
+ * Adds Ciphers to the Cipher List structure
+ *
+ * @param options Options for this run
+ * @param ssl_method SSL method to populate ciphers for.
+ * @return Boolean: true = success | false = error
+ */
+int populate_ciphers(struct sslCheckOptions *options, const SSL_METHOD *ssl_method)
 {
-	// Variables...
-	int returnCode = true;
-	struct sslCipher *sslCipherPointer;
-	int tempInt;
-	int loop;
+	struct sslCipher *cipher_ptr;
+	int tmp_int;
+	int i;
 	// STACK_OF is a sign that you should be using C++ :)
-	STACK_OF(SSL_CIPHER) *cipherList;
+	STACK_OF(SSL_CIPHER) *cipher_list;
+	SSL_CTX *ctx;
 	SSL *ssl = NULL;
 
-	options->ctx = SSL_CTX_new(sslMethod);
-	if (options->ctx == NULL) {
+	ctx = SSL_CTX_new(ssl_method);
+	if (ctx == NULL) {
 		printf("%sERROR: Could not create CTX object.%s\n", COL_RED, RESET);
 		return false;
 	}
 
-	SSL_CTX_set_cipher_list(options->ctx, "ALL:COMPLEMENTOFALL");
+	SSL_CTX_set_cipher_list(ctx, "ALL:COMPLEMENTOFALL");
 
-	ssl = SSL_new(options->ctx);
+	ssl = SSL_new(ctx);
 	if (ssl == NULL) {
 		printf("%sERROR: Could not create SSL object.%s\n", COL_RED, RESET);
-		SSL_CTX_free(options->ctx);
+		SSL_CTX_free(ctx);
 		return false;
 	}
 
-	cipherList = SSL_get_ciphers(ssl);
+	cipher_list = SSL_get_ciphers(ssl);
+
+	if (options->ciphers != NULL) {
+		cipher_ptr = options->ciphers;
+		while (cipher_ptr->next != NULL)
+			cipher_ptr = cipher_ptr->next;
+	}
 
 	// Create Cipher Struct Entries...
-	for (loop = 0; loop < sk_SSL_CIPHER_num(cipherList); loop++)
-	{
-		if (options->ciphers == 0)
-		{
+	for (i = 0; i < sk_SSL_CIPHER_num(cipher_list); i++) {
+		if (options->ciphers == NULL) {
 			options->ciphers = malloc(sizeof(struct sslCipher));
-			sslCipherPointer = options->ciphers;
-		}
-		else
-		{
-			sslCipherPointer = options->ciphers;
-			while (sslCipherPointer->next != 0)
-				sslCipherPointer = sslCipherPointer->next;
-			sslCipherPointer->next = malloc(sizeof(struct sslCipher));
-			sslCipherPointer = sslCipherPointer->next;
+			cipher_ptr = options->ciphers;
+		} else {
+			cipher_ptr->next = malloc(sizeof(struct sslCipher));
+			cipher_ptr = cipher_ptr->next;
 		}
 
-		// Init
-		memset(sslCipherPointer, 0, sizeof(struct sslCipher));
+		memset(cipher_ptr, 0, sizeof(struct sslCipher));
+		cipher_ptr->next = NULL;
 
 		// Add cipher information...
-		sslCipherPointer->sslMethod = sslMethod;
-		sslCipherPointer->name = SSL_CIPHER_get_name(sk_SSL_CIPHER_value(cipherList, loop));
-		sslCipherPointer->version = SSL_CIPHER_get_version(sk_SSL_CIPHER_value(cipherList, loop));
-		SSL_CIPHER_description(sk_SSL_CIPHER_value(cipherList, loop), sslCipherPointer->description, sizeof(sslCipherPointer->description) - 1);
-		sslCipherPointer->bits = SSL_CIPHER_get_bits(sk_SSL_CIPHER_value(cipherList, loop), &tempInt);
+		cipher_ptr->sslMethod = ssl_method;
+		cipher_ptr->name = SSL_CIPHER_get_name(sk_SSL_CIPHER_value(cipher_list, i));
+		cipher_ptr->version = SSL_CIPHER_get_version(sk_SSL_CIPHER_value(cipher_list, i));
+		SSL_CIPHER_description(sk_SSL_CIPHER_value(cipher_list, i), cipher_ptr->description, sizeof(cipher_ptr->description) - 1);
+		cipher_ptr->bits = SSL_CIPHER_get_bits(sk_SSL_CIPHER_value(cipher_list, i), &tmp_int);
 	}
 
 	SSL_free(ssl);
-	SSL_CTX_free(options->ctx);
+	SSL_CTX_free(ctx);
 
-	return returnCode;
+	return true;
 }
 
 /**
@@ -223,19 +227,19 @@ void init_ssl(struct sslCheckOptions *options)
 	// Build a list of ciphers...
 #ifndef OPENSSL_NO_SSL2
 	if (options->ssl_versions & ssl_v2)
-		populateCipherList(options, SSLv2_client_method());
+		populate_ciphers(options, SSLv2_client_method());
 #endif
 	if (options->ssl_versions & ssl_v3)
-		populateCipherList(options, SSLv3_client_method());
+		populate_ciphers(options, SSLv3_client_method());
 
 	if (options->ssl_versions & tls_v10)
-		populateCipherList(options, TLSv1_client_method());
+		populate_ciphers(options, TLSv1_client_method());
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 	if (options->ssl_versions & tls_v11)
-		populateCipherList(options, TLSv1_1_client_method());
+		populate_ciphers(options, TLSv1_1_client_method());
 	if (options->ssl_versions & tls_v12)
-		populateCipherList(options, TLSv1_2_client_method());
+		populate_ciphers(options, TLSv1_2_client_method());
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 }
 
