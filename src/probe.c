@@ -20,21 +20,13 @@ static int use_unsafe_renegotiation_flag = 0;
 #define SSL3_FLAGS_ALLOW_UNSAFE_LEGACY_RENEGOTIATION 0x0010
 #endif
 
-struct renegotiationOutput * newRenegotiationOutput( void )
-{
-	struct renegotiationOutput *myRenOut;
-	myRenOut = calloc(1,sizeof(struct renegotiationOutput));
-	return( myRenOut );
-}
-
-int freeRenegotiationOutput( struct renegotiationOutput *myRenOut );
 int get_certificate(struct sslCheckOptions *options);
 int loadCerts(struct sslCheckOptions *options);
-int outputRenegotiation( struct sslCheckOptions *options, struct renegotiationOutput *outputData);
 static int password_callback(char *buf, int size, int rwflag, void *userdata);
 int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPointer);
 int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD *ssl_method);
 int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *sslMethod);
+int test_renegotiation_process_result( struct sslCheckOptions *options, struct renegotiationOutput result);
 int test_host(struct sslCheckOptions *options);
 int tcpConnect(struct sslCheckOptions *options);
 void tls_reneg_init(struct sslCheckOptions *options);
@@ -298,14 +290,6 @@ int tcpConnect(struct sslCheckOptions *options)
 	return socketDescriptor;
 }
 
-
-int freeRenegotiationOutput( struct renegotiationOutput *myRenOut )
-{
-	if ( myRenOut != NULL) {
-		free(myRenOut);
-	}
-	return true;
-}
 
 // Get certificate...
 int get_certificate(struct sslCheckOptions *options)
@@ -780,27 +764,6 @@ int loadCerts(struct sslCheckOptions *options)
 	else
 		return false;
 }
-
-// Test renegotiation
-int outputRenegotiation( struct sslCheckOptions *options, struct renegotiationOutput *outputData)
-{
-
-	if (options->xmlOutput != 0)
-	{
-		fprintf(options->xmlOutput, "  <renegotiation supported=\"%d\" secure=\"%d\" />\n",
-			   outputData->supported, outputData->secure);
-	}
-
-	if (outputData->secure)
-		printf("    Secure session renegotiation supported\n\n");
-	else if (outputData->supported)
-		printf("    Insecure session renegotiation supported\n\n");
-	else
-	   printf("    Session renegotiation not supported\n\n");
-
-	return true;
-}
-
 
 // Private Key Password Callback...
 static int password_callback(char *buf, int size, int rwflag, void *userdata)
@@ -1368,7 +1331,10 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 	int res;
 	SSL *ssl = NULL;
 	BIO *cipherConnectionBio;
-	struct renegotiationOutput *renOut = newRenegotiationOutput();
+	struct renegotiationOutput result;
+
+	result.supported = false;
+	result.secure = false;
 
 	options->ctx = SSL_CTX_new(ssl_method);
 	tls_reneg_init(options);
@@ -1378,24 +1344,22 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 	if (socketDescriptor == 0) {
 		// Could not connect
 		fprintf(stderr, "%sERROR: Could not connect.%s\n", COL_RED, RESET);
-		renOut->supported = false;
-		freeRenegotiationOutput( renOut );
+		result.supported = false;
 		return false;
 	}
 
 	// Setup Context Object...
 	options->ctx = SSL_CTX_new(ssl_method);
 	if (options->ctx == NULL) {
-		renOut->supported = false;
+		result.supported = false;
 		fprintf(stderr, "%sERROR: Could not create CTX object.%s\n", COL_RED, RESET);
 		close(socketDescriptor);
 
-		outputRenegotiation(options, renOut);
-		freeRenegotiationOutput( renOut );
+		test_renegotiation_process_result(options, result);
 		return false;
 	}
 	if (SSL_CTX_set_cipher_list(options->ctx, "ALL:COMPLEMENTOFALL") == 0) {
-		renOut->supported = false;
+		result.supported = false;
 		fprintf(stderr, "%s    ERROR: Could set cipher.%s\n", COL_RED, RESET);
 		// Free CTX Object
 		SSL_CTX_free(options->ctx);
@@ -1403,8 +1367,7 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 		// Disconnect from host
 		close(socketDescriptor);
 
-		outputRenegotiation(options, renOut);
-		freeRenegotiationOutput( renOut );
+		test_renegotiation_process_result(options, result);
 		return false;
 	}
 
@@ -1417,8 +1380,7 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 			// Disconnect from host
 			close(socketDescriptor);
 
-			outputRenegotiation(options, renOut);
-			freeRenegotiationOutput( renOut );
+			test_renegotiation_process_result(options, result);
 			return false;
 		}
 	}
@@ -1433,7 +1395,7 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 #endif
 
 	if (ssl == NULL) {
-		renOut->supported = false;
+		result.supported = false;
 		fprintf(stderr, "%s    ERROR: Could create SSL object.%s\n", COL_RED, RESET);
 
 		// Free CTX Object
@@ -1442,8 +1404,7 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 		// Disconnect from host
 		close(socketDescriptor);
 
-		outputRenegotiation(options, renOut);
-		freeRenegotiationOutput( renOut );
+		test_renegotiation_process_result(options, result);
 		return false;
 	}
 
@@ -1497,8 +1458,7 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 		// Disconnect from host
 		close(socketDescriptor);
 
-		outputRenegotiation(options, renOut);
-		freeRenegotiationOutput( renOut );
+		test_renegotiation_process_result(options, result);
 		return false;
 	}
 
@@ -1507,11 +1467,11 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 	if(options->verbose)
 		printf("Attempting secure_renegotiation_support()");
 
-	renOut->secure = SSL_get_secure_renegotiation_support(ssl);
-	if( renOut->secure ) {
+	result.secure = SSL_get_secure_renegotiation_support(ssl);
+	if( result.secure ) {
 		// If it supports secure renegotiations,
 		// it should have renegotioation support in general
-		renOut->supported = true;
+		result.supported = true;
 		status = true;
 	} else {
 #endif
@@ -1538,16 +1498,16 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 			}
 			if (ssl->state == SSL_ST_OK) {
 				/* our renegotiation is complete */
-				renOut->supported = true;
+				result.supported = true;
 				status = true;
 			} else {
-				renOut->supported = false;
+				result.supported = false;
 				status = false;
 				fprintf(stderr, "\n\nFailed to complete renegotiation\n");
 			}
 		} else {
 			status = false;
-			renOut->secure = false;
+			result.secure = false;
 		}
 #if ( OPENSSL_VERSION_NUMBER > 0x009080cfL )
 	}
@@ -1564,12 +1524,19 @@ int test_renegotiation(struct sslCheckOptions *options, const SSL_METHOD *ssl_me
 	// Disconnect from host
 	close(socketDescriptor);
 
-	outputRenegotiation(options, renOut);
-	freeRenegotiationOutput( renOut );
-
+	test_renegotiation_process_result(options, result);
 	return status;
 }
 
+/**
+ *  Test renegotiation
+ */
+int test_renegotiation_process_result( struct sslCheckOptions *options, struct renegotiationOutput result)
+{
+	PyDict_SetItemString(options->host_result, "renegotiation.supported", (PyObject *)PyLong_FromLong(result.supported));
+	PyDict_SetItemString(options->host_result, "renegotiation.secure", (PyObject *)PyLong_FromLong(result.secure));
+	return true;
+}
 
 /**
  * Test a single host and port for ciphers...
