@@ -35,7 +35,7 @@ static int password_callback(char *buf, int size, int rwflag, void *userdata);
 int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPointer);
 int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD *ssl_method);
 int testRenegotiation(struct sslCheckOptions *options, const SSL_METHOD *sslMethod);
-int testHost(struct sslCheckOptions *options);
+int test_host(struct sslCheckOptions *options);
 int tcpConnect(struct sslCheckOptions *options);
 void tls_reneg_init(struct sslCheckOptions *options);
 
@@ -849,7 +849,7 @@ int run_tests(struct sslCheckOptions *options)
 #ifdef PYTHON_SUPPORT
 				options->host_result = new_host_result();
 #endif
-				status = testHost(options);
+				status = test_host(options);
 				if(!status) {
 					// print error and continue
 					printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options->host, RESET);
@@ -866,7 +866,7 @@ int run_tests(struct sslCheckOptions *options)
 #ifdef PYTHON_SUPPORT
 		options->host_result = new_host_result();
 #endif
-		status = testHost(options);
+		status = test_host(options);
 		if(!status) {
 			printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options->host, RESET);
 			// ToDo:
@@ -1546,13 +1546,16 @@ int testRenegotiation(struct sslCheckOptions *options, const SSL_METHOD *sslMeth
 }
 
 
-
-// Test a single host and port for ciphers...
-int testHost(struct sslCheckOptions *options)
+/**
+ * Test a single host and port for ciphers...
+ *
+ * @param options Connection options
+ */
+int test_host(struct sslCheckOptions *options)
 {
 	// Variables...
-	struct sslCipher *sslCipherPointer;
-	int status = true;
+	struct sslCipher *cipher;
+	int tmp_int;
 
 	// set default port if service is not given
 	if (strlen(options->service) == 0)
@@ -1573,8 +1576,8 @@ int testHost(struct sslCheckOptions *options)
 
 	// Reset address selection
 	options->addrSelected = NULL;
-	// Resolve Host Name
 
+	// Resolve Host Name
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
@@ -1585,110 +1588,96 @@ int testHost(struct sslCheckOptions *options)
 
 	hints.ai_socktype = SOCK_STREAM;
 
-	int status_; // ToDo: clean up
-	status_ = getaddrinfo(options->host, options->service, &hints, &options->addrList);
+	tmp_int = getaddrinfo(options->host, options->service, &hints, &options->addrList);
 
-	if (status_ != 0)
-	{
-		if (status_ == EAI_SYSTEM)
-		{
-			perror("getaddrinfo");
-		}
-		else
-		{
-			fprintf(stderr, "error in getaddrinfo: %s\n", gai_strerror(status));
-		}
-		//printf("%sERROR: Could not resolve hostname %s.%s\n", COL_RED, options->host, RESET);
+	if (tmp_int != 0) {
+		fprintf(stderr, "error in getaddrinfo remote: %s\n", gai_strerror(tmp_int));
 		return false;
 	}
 
-	// find local address
-	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC;
-	if (options->forceAddressFamily == FORCE_AF_INET4)
-		hints.ai_family = AF_INET;
-	else if (options->forceAddressFamily == FORCE_AF_INET6)
-		hints.ai_family = AF_INET6;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
+	if (strcmp(options->localAddress, "") != 0) {
+		// find local address
+		memset(&hints, 0, sizeof(struct addrinfo));
+		hints.ai_family = AF_UNSPEC;
+		if (options->forceAddressFamily == FORCE_AF_INET4)
+			hints.ai_family = AF_INET;
+		else if (options->forceAddressFamily == FORCE_AF_INET6)
+			hints.ai_family = AF_INET6;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags = AI_PASSIVE;
 
-	status_ = getaddrinfo(options->localAddress, NULL, &hints, &options->localAddrList);
+		tmp_int = getaddrinfo(options->localAddress, NULL, &hints, &options->localAddrList);
+		if (tmp_int != 0) {
+			fprintf(stderr, "error in getaddrinfo local: %s\n", gai_strerror(tmp_int));
+			return false;
+		}
+	}
 
 	// Test renegotiation
 	printf("\n%sTesting SSL server %s on port %s%s\n\n", COL_GREEN, options->host, options->service, RESET);
 
-	if (status == true && options->reneg )
-	{
-		printf("\n  %sTLS renegotiation:%s\n", COL_BLUE, RESET);
+	if (options->reneg)
 		testRenegotiation(options, TLSv1_client_method());
-	}
 
 	// Test supported ciphers...
-	sslCipherPointer = options->ciphers;
-	while ((sslCipherPointer != 0) && (status == true))
-	{
-
+	cipher = options->ciphers;
+	while (cipher != NULL) {
 		// Setup Context Object...
-		options->ctx = SSL_CTX_new(sslCipherPointer->sslMethod);
-		if (options->ctx != NULL)
-		{
-
-			// SSL implementation bugs/workaround
-			if (options->sslbugs)
-				SSL_CTX_set_options(options->ctx, SSL_OP_ALL | 0);
-			else
-				SSL_CTX_set_options(options->ctx, 0);
-
-			// Load Certs if required...
-			if ((options->clientCertsFile != 0) || (options->privateKeyFile != 0))
-				status = loadCerts(options);
-
-			// Test
-			if (status == true && test_cipher(options, sslCipherPointer) > 0)
-				status = false;
-
-			// Free CTX Object
-			SSL_CTX_free(options->ctx);
-		}
-
-		// Error Creating Context Object
-		else
-		{
-			status = false;
+		options->ctx = SSL_CTX_new(cipher->sslMethod);
+		if (options->ctx == NULL) {
 			printf("%sERROR: Could not create CTX object.%s\n", COL_RED, RESET);
+			return false;
 		}
+		// SSL implementation bugs/workaround
+		if (options->sslbugs)
+			SSL_CTX_set_options(options->ctx, SSL_OP_ALL | 0);
+		else
+			SSL_CTX_set_options(options->ctx, 0);
 
-		sslCipherPointer = sslCipherPointer->next;
+		// Load Certs if required...
+		if ((options->clientCertsFile != 0) || (options->privateKeyFile != 0))
+			if(loadCerts(options) == false)
+				return false;
+
+		// Test
+		if (test_cipher(options, cipher) > 0)
+			return false;
+
+		// Free CTX Object
+		SSL_CTX_free(options->ctx);
+
+		cipher = cipher->next;
 	}
 
-	if (status == true) {
-		// Test preferred ciphers...
+	// Test preferred ciphers...
 #ifndef OPENSSL_NO_SSL2
-		if (options->ssl_versions & ssl_v2)
-			status = test_default_cipher(options, SSLv2_client_method());
+	if (options->ssl_versions & ssl_v2)
+		if(test_default_cipher(options, SSLv2_client_method()) == false)
+			return false;
 #endif
 
-		if (options->ssl_versions & ssl_v3)
-			status = test_default_cipher(options, SSLv3_client_method());
-		if (options->ssl_versions & tls_v10)
-			status = test_default_cipher(options, TLSv1_client_method());
+	if (options->ssl_versions & ssl_v3)
+		if (test_default_cipher(options, SSLv3_client_method()) == false)
+			return false;
+	if (options->ssl_versions & tls_v10)
+		if (test_default_cipher(options, TLSv1_client_method()) == false)
+			return false;
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-		if (options->ssl_versions & tls_v11)
-			status = test_default_cipher(options, TLSv1_1_client_method());
-		if (options->ssl_versions & tls_v12)
-			status = test_default_cipher(options, TLSv1_2_client_method());
+	if (options->ssl_versions & tls_v11)
+		if (test_default_cipher(options, TLSv1_1_client_method()) == false)
+			return false;
+	if (options->ssl_versions & tls_v12)
+		if (test_default_cipher(options, TLSv1_2_client_method()) == false)
+			return false;
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
-	}
 
-	if (status == true)
-	{
-		status = get_certificate(options);
-	}
+	if (get_certificate(options) == false)
+		return false;
 
 	// Return status...
-	return status;
+	return true;
 }
 
 void tls_reneg_init(struct sslCheckOptions *options)
