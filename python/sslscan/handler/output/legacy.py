@@ -15,6 +15,7 @@ class Legacy(Output):
         for cipher in client.get("ciphers", []):
             print("    %s" % cipher.get("name", ""))
         print("")
+
         for host in host_results:
             print("  Supported Server Cipher(s):")
             for cipher in host.get("ciphers", []):
@@ -27,6 +28,18 @@ class Legacy(Output):
                     )
                 )
             print("")
+
+            # renegotiation
+            if host.get("renegotiation.supported", None) is not None:
+                print("  TLS renegotiation:")
+            if host.get("renegotiation.secure", None):
+                print("    Secure session renegotiation supported")
+            elif host.get("renegotiation.supported", None):
+                print("    Insecure session renegotiation supported")
+            elif host.get("renegotiation.supported", None) is not None:
+                print("    Session renegotiation not supported\n\n");
+            print("")
+
             print("  Preferred Server Cipher(s):")
             for cipher in host.get("ciphers.default", {}).values():
                 if cipher is None:
