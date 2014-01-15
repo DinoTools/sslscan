@@ -12,6 +12,8 @@ class LegacyXML(Output):
 
     def run(self, client, host_results):
         fp = open(self.filename, "w")
+        # ToDo: Could not open XML output file
+
         fp.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         # ToDo: get version from core application
         fp.write("<document title=\"SSLScan Results\" version=\"1.10.0\" web=\"http://www.titania.co.uk\">\n")
@@ -21,6 +23,14 @@ class LegacyXML(Output):
             fp.write(" <ssltest host=\"\" port=\"\">\n")
             for cipher in client.get("ciphers", []):
                 fp.write(" <client-cipher cipher=\"%s\" />\n" % cipher.get("name", ""))
+
+            if host.get("renegotiation.supported", None) is not None:
+                fp.write(
+                    "  <renegotiation supported=\"%d\" secure=\"%d\" />\n" % (
+                        host.get("renegotiation.supported", 0),
+                        host.get("renegotiation.secure", 0)
+                    )
+                )
 
             for cipher in host.get("ciphers", []):
                 fp.write(
