@@ -1614,25 +1614,8 @@ int testHost(struct sslCheckOptions *options)
 
 	status_ = getaddrinfo(options->localAddress, NULL, &hints, &options->localAddrList);
 
-
-	// XML Output...
-	if (options->xmlOutput != 0)
-		fprintf(options->xmlOutput, " <ssltest host=\"%s\" port=\"%s\">\n", options->host, options->service);
-
 	// Test renegotiation
 	printf("\n%sTesting SSL server %s on port %s%s\n\n", COL_GREEN, options->host, options->service, RESET);
-
-	sslCipherPointer = options->ciphers;
-	printf("  %sSupported Client Cipher(s):%s\n", COL_BLUE, RESET);
-	while ((sslCipherPointer != 0) && (status == true))
-	{
-		printf("    %s\n",sslCipherPointer->name);
-
-		if (options->xmlOutput != 0)
-			fprintf(options->xmlOutput, " <client-cipher cipher=\"%s\" />\n", sslCipherPointer->name);
-
-		sslCipherPointer = sslCipherPointer->next;
-	}
 
 	if (status == true && options->reneg )
 	{
@@ -1641,11 +1624,6 @@ int testHost(struct sslCheckOptions *options)
 	}
 
 	// Test supported ciphers...
-	printf("  %sSupported Server Cipher(s):%s\n", COL_BLUE, RESET);
-	if ((options->http == true) && (options->pout == true))
-		printf("|| Status || HTTP Code || Version || Bits || Cipher ||\n");
-	else if (options->pout == true)
-		printf("|| Status || Version || Bits || Cipher ||\n");
 	sslCipherPointer = options->ciphers;
 	while ((sslCipherPointer != 0) && (status == true))
 	{
@@ -1685,10 +1663,6 @@ int testHost(struct sslCheckOptions *options)
 
 	if (status == true) {
 		// Test preferred ciphers...
-		printf("\n  %sPreferred Server Cipher(s):%s\n", COL_BLUE, RESET);
-		if (options->pout == true)
-			printf("|| Version || Bits || Cipher ||\n");
-
 #ifndef OPENSSL_NO_SSL2
 		if (options->ssl_versions & ssl_v2)
 			status = test_default_cipher(options, SSLv2_client_method());
@@ -1712,10 +1686,6 @@ int testHost(struct sslCheckOptions *options)
 	{
 		status = get_certificate(options);
 	}
-
-	// XML Output...
-	if (options->xmlOutput != 0)
-		fprintf(options->xmlOutput, " </ssltest>\n");
 
 	// Return status...
 	return status;
