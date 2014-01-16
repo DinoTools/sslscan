@@ -64,19 +64,28 @@ class Legacy(Output):
             print("    Not valid before: %s" % x509.get_not_before(3))
             print("    Not valid after: %s" % x509.get_not_before(3))
             print("    Subject: %s" % x509.get_subject())
-            print("    Public Key Algorithm: %s" % host.get("certificate.public_key.algorithm", ""))
-            pk_data = host.get("certificate.public_key.data", None)
-            if pk_data is None:
-                print("    Public Key: Could not load")
+            pk = x509.get_public_key()
+            if pk:
+                print("    Public Key Algorithm: %s" % pk.get_algorithm())
+                tmp_name = pk.get_type_name()
+                if tmp_name:
+                    tmp_bits = pk.get_bits()
+                    if tmp_bits:
+                        print("    %s Public Key: (%d bit)" % (tmp_name, tmp_bits))
+                    else:
+                        print("    %s Public Key:" % tmp_name)
+                    print(pk.get_key_print(6))
+                else:
+                    print("    Public Key: Unknown")
             else:
-                pass # ToDo
+                print("   Public Key: Could not load")
 
             print("  Verify Certificate:")
             verfy_status = host.get("certificate.verify.status", None)
             if verfy_status:
                 print("    Certificate passed verification")
             else:
-                print("    %s" % host.get("certificate.verify.error_message", u""))
+                print("    %s" % host.get("certificate.verify.error_message", ""))
 
 
 output.register("legacy", Legacy)
