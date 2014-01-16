@@ -15,9 +15,12 @@ static PyObject * sslscan_ssl_pkey_get_bits(sslscan_ssl_pkey_obj *self, PyObject
 {
 	if (self->key->type == EVP_PKEY_DSA && self->key->pkey.dsa)
 		return PyLong_FromLong(DSA_size(self->key->pkey.dsa) * 8);
+
+#if defined(EVP_PKEY_EC) && !defined(OPENSSL_NO_BIO) && !defined(OPENSSL_NO_EC)
 	// ToDo:
 	if (self->key->type == EVP_PKEY_EC && self->key->pkey.ec)
 		return Py_BuildValue("");
+#endif // #if defined(EVP_PKEY_EC) && !defined(OPENSSL_NO_BIO) && !defined(OPENSSL_NO_EC)
 	if (self->key->type == EVP_PKEY_RSA && self->key->pkey.rsa)
 		return PyLong_FromLong(RSA_size(self->key->pkey.rsa) * 8);
 	return Py_BuildValue("");
@@ -44,8 +47,10 @@ static PyObject * sslscan_ssl_pkey_get_key_print(sslscan_ssl_pkey_obj *self, PyO
 
 	if (self->key->type == EVP_PKEY_DSA)
 		status = DSA_print(bp, self->key->pkey.dsa, indent);
+#if defined(EVP_PKEY_EC) && !defined(OPENSSL_NO_BIO) && !defined(OPENSSL_NO_EC)
 	if (self->key->type == EVP_PKEY_EC)
 		status = EC_KEY_print(bp, self->key->pkey.ec, indent);
+#endif // #if defined(EVP_PKEY_EC) && !defined(OPENSSL_NO_BIO) && !defined(OPENSSL_NO_EC)
 	if (self->key->type == EVP_PKEY_RSA)
 		status = RSA_print(bp, self->key->pkey.rsa, indent);
 	if (status == 1) {
@@ -69,8 +74,10 @@ static PyObject * sslscan_ssl_pkey_get_type_name(sslscan_ssl_pkey_obj *self, PyO
 {
 	if (self->key->type == EVP_PKEY_DSA)
 		return PyUnicode_FromString("DSA");
+#if defined(EVP_PKEY_EC) && !defined(OPENSSL_NO_BIO) && !defined(OPENSSL_NO_EC)
 	if (self->key->type == EVP_PKEY_EC)
 		return PyUnicode_FromString("EC");
+#endif // #if defined(EVP_PKEY_EC) && !defined(OPENSSL_NO_BIO) && !defined(OPENSSL_NO_EC)
 	if (self->key->type == EVP_PKEY_RSA)
 		return PyUnicode_FromString("RSA");
 	return Py_BuildValue("");
@@ -98,6 +105,12 @@ static int sslscan_ssl_pkey_tp_init(sslscan_ssl_pkey_obj *self, PyObject *args, 
 	return 0;
 }
 
+static int sslscan_ssl_pkey_tp_dealloc(sslscan_ssl_pkey_obj *self)
+{
+	if (self->key != NULL)
+		EVP_PKEY_free(self->key);
+}
+
 #define ADD_METHOD(name) { #name, (PyCFunction)sslscan_ssl_pkey_##name, METH_VARARGS, sslscan_ssl_pkey_##name##_doc }
 
 static PyMethodDef sslscan_ssl_pkey_tp_methods[] = {
@@ -121,7 +134,7 @@ PyTypeObject sslscan_ssl_pkey_Type = {
 	"PublicKey",                       /*tp_name*/
 	sizeof(sslscan_ssl_pkey_obj),             /*tp_basicsize*/
 	0,                                        /*tp_itemsize*/
-	0,                                        /*tp_dealloc*/
+	sslscan_ssl_pkey_tp_dealloc,               /*tp_dealloc*/
 	0,                                        /*tp_print*/
 	0,                                        /*tp_getattr*/
 	0,                                        /*tp_setattr*/
