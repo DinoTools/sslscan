@@ -64,14 +64,21 @@ class LegacyXML(Output):
             fp.write("  <signature-algorithm>%s</signature-algorithm>\n" % x509.get_signature_algorithm())
             fp.write("  <issuer>%s</issuer>\n" % x509.get_issuer())
             fp.write("  <not-valid-before>%s</not-valid-before>\n" % x509.get_not_before(3))
-            fp.write("  <not-valid-after>%s</not-valid-after>\n" % x509.get_not_before(3))
+            fp.write("  <not-valid-after>%s</not-valid-after>\n" % x509.get_not_after(3))
             fp.write("  <subject>%s</subject>\n" % x509.get_subject())
-            fp.write("  <pk-algorithm>%s</pk-algorithm>\n" % host.get("certificate.public_key.algorithm", ""))
-            pk_data = host.get("certificate.public_key.data", None)
-            if pk_data is None:
-                print("    Public Key: Could not load")
-            else:
-                pass  # ToDo
+            pk = x509.get_public_key()
+            if pk:
+                fp.write("  <pk-algorithm>%s</pk-algorithm>\n" % pk.get_algorithm())
+                tmp_name = pk.get_type_name()
+                if tmp_name:
+                    tmp_bits = pk.get_bits()
+                    if tmp_bits:
+                        fp.write("   <pk error=\"false\" type=\"RSA\" bits=\"%d\">\n" % (tmp_name, tmp_bits))
+                    else:
+                        fp.write("   <pk error=\"false\" type=\"%s\">\n" % tmp_name)
+                    print(pk.get_key_print(6))
+                else:
+                    fp.write("   <pk error=\"true\" type=\"unknown\" />\n")
             fp.write(" </ssltest>\n")
 
         fp.write("</document>\n")
