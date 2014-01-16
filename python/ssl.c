@@ -48,6 +48,7 @@ static PyObject * sslscan_ssl_module_init(void)
 		return NULL;
 	}
 	PyModule_AddType(py_ssl_obj, "X509", &sslscan_ssl_x509_Type);
+	PyModule_AddType(py_ssl_obj, "PublicKey", &sslscan_ssl_pkey_Type);
 	return py_ssl_obj;
 }
 

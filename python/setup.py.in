@@ -6,7 +6,7 @@ from distutils import sysconfig
 
 ext_modules=[
 	Extension("sslscan.ssl",
-		['${CMAKE_CURRENT_SOURCE_DIR}/' + n for n in ['x509.c', 'ssl.c'] ],
+		['${CMAKE_CURRENT_SOURCE_DIR}/' + n for n in ['x509.c', 'ssl.c', 'pkey.c'] ],
 		language="c",
 		include_dirs=[],
 		undef_macros=[('NDEBUG')],

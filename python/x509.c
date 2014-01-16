@@ -12,6 +12,16 @@ static PyObject *sslscan_ssl_x509_get_version(sslscan_ssl_x509_obj *self, PyObje
 		return Py_BuildValue("");
 }
 
+static char sslscan_ssl_x509_get_public_key_doc[] = "";
+
+static PyObject *sslscan_ssl_x509_get_public_key(sslscan_ssl_x509_obj *self, PyObject *args)
+{
+	sslscan_ssl_pkey_obj *py_func = PyObject_New(sslscan_ssl_pkey_obj, &sslscan_ssl_pkey_Type);
+	py_func->x509 = self->x509;
+	py_func->key = X509_get_pubkey(self->x509);
+	return (PyObject*)py_func;
+}
+
 static char sslscan_ssl_x509_get_serial_number_doc[] = "";
 
 static PyObject * sslscan_ssl_x509_get_serial_number(sslscan_ssl_x509_obj *self, PyObject *args)
@@ -297,6 +307,7 @@ static PyMethodDef sslscan_ssl_x509_tp_methods[] = {
 	ADD_METHOD(get_not_after),
 	ADD_METHOD(get_not_before),
 	ADD_METHOD(get_certificate_blob),
+	ADD_METHOD(get_public_key),
 	{NULL, NULL}  /* Sentinel */
 };
 
