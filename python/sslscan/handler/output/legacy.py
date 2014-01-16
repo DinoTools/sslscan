@@ -62,7 +62,7 @@ class Legacy(Output):
             print("    Signature Algorithm: %s" % x509.get_signature_algorithm())
             print("    Issuer: %s" % x509.get_issuer())
             print("    Not valid before: %s" % x509.get_not_before(3))
-            print("    Not valid after: %s" % x509.get_not_before(3))
+            print("    Not valid after: %s" % x509.get_not_after(3))
             print("    Subject: %s" % x509.get_subject())
             pk = x509.get_public_key()
             if pk:
