@@ -16,10 +16,15 @@ static char sslscan_ssl_x509_get_public_key_doc[] = "";
 
 static PyObject *sslscan_ssl_x509_get_public_key(sslscan_ssl_x509_obj *self, PyObject *args)
 {
-	sslscan_ssl_pkey_obj *py_func = PyObject_New(sslscan_ssl_pkey_obj, &sslscan_ssl_pkey_Type);
-	py_func->x509 = self->x509;
-	py_func->key = X509_get_pubkey(self->x509);
-	return (PyObject*)py_func;
+	sslscan_ssl_pkey_obj *py_obj;
+	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_PUBKEY)) {
+		py_obj = PyObject_New(sslscan_ssl_pkey_obj, &sslscan_ssl_pkey_Type);
+		py_obj->x509 = self->x509;
+		py_obj->key = X509_get_pubkey(self->x509);
+	} else {
+		py_obj = Py_BuildValue("");
+	}
+	return (PyObject*)py_obj;
 }
 
 static char sslscan_ssl_x509_get_serial_number_doc[] = "";
