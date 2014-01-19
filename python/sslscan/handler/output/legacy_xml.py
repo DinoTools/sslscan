@@ -73,14 +73,27 @@ class LegacyXML(Output):
                 if tmp_name:
                     tmp_bits = pk.get_bits()
                     if tmp_bits:
-                        fp.write("   <pk error=\"false\" type=\"RSA\" bits=\"%d\">\n" % (tmp_name, tmp_bits))
+                        fp.write("   <pk error=\"false\" type=\"%s\" bits=\"%d\">\n" % (tmp_name, tmp_bits))
                     else:
                         fp.write("   <pk error=\"false\" type=\"%s\">\n" % tmp_name)
                     print(pk.get_key_print(6))
                 else:
                     fp.write("   <pk error=\"true\" type=\"unknown\" />\n")
-            fp.write(" </ssltest>\n")
 
+            extensions = x509.get_extensions()
+            if extensions:
+                fp.write("   <X509v3-Extensions>\n")
+                for ext in extensions:
+                    fp.write(
+                        "    <extension name=\"%s\"%s>%s</extension>\n" % (
+                            ext.get_name(),
+                            " level=\"critical\"" if ext.get_critical() else "",
+                            ext.get_value(0)
+                        ),
+                    )
+                fp.write("   </X509v3-Extensions>\n")
+
+            fp.write(" </ssltest>\n")
         fp.write("</document>\n")
         fp.close()
         return 0
