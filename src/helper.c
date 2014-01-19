@@ -184,6 +184,72 @@ int parseHostString(char *host, struct sslCheckOptions *options)
 }
 
 /**
+ * Adds Ciphers to the Cipher List structure
+ *
+ * @param options Options for this run
+ * @param ssl_method SSL method to populate ciphers for.
+ * @return Boolean: true = success | false = error
+ */
+int populate_ciphers(struct sslCheckOptions *options, const SSL_METHOD *ssl_method)
+{
+	struct sslCipher *cipher_ptr;
+	int i;
+	// STACK_OF is a sign that you should be using C++ :)
+	STACK_OF(SSL_CIPHER) *cipher_list;
+	SSL_CTX *ctx;
+	SSL *ssl = NULL;
+
+	ctx = SSL_CTX_new(ssl_method);
+	if (ctx == NULL) {
+		printf("%sERROR: Could not create CTX object.%s\n", COL_RED, RESET);
+		return false;
+	}
+
+	SSL_CTX_set_cipher_list(ctx, "ALL:COMPLEMENTOFALL");
+
+	ssl = SSL_new(ctx);
+	if (ssl == NULL) {
+		printf("%sERROR: Could not create SSL object.%s\n", COL_RED, RESET);
+		SSL_CTX_free(ctx);
+		return false;
+	}
+
+	cipher_list = SSL_get_ciphers(ssl);
+
+	if (options->ciphers != NULL) {
+		cipher_ptr = options->ciphers;
+		while (cipher_ptr->next != NULL)
+			cipher_ptr = cipher_ptr->next;
+	}
+
+	// Create Cipher Struct Entries...
+	for (i = 0; i < sk_SSL_CIPHER_num(cipher_list); i++) {
+		if (options->ciphers == NULL) {
+			options->ciphers = malloc(sizeof(struct sslCipher));
+			cipher_ptr = options->ciphers;
+		} else {
+			cipher_ptr->next = malloc(sizeof(struct sslCipher));
+			cipher_ptr = cipher_ptr->next;
+		}
+
+		memset(cipher_ptr, 0, sizeof(struct sslCipher));
+		cipher_ptr->next = NULL;
+
+		// Add cipher information...
+		cipher_ptr->sslMethod = ssl_method;
+		cipher_ptr->name = SSL_CIPHER_get_name(sk_SSL_CIPHER_value(cipher_list, i));
+		cipher_ptr->version = SSL_CIPHER_get_version(sk_SSL_CIPHER_value(cipher_list, i));
+		SSL_CIPHER_description(sk_SSL_CIPHER_value(cipher_list, i), cipher_ptr->description, sizeof(cipher_ptr->description) - 1);
+		cipher_ptr->bits = SSL_CIPHER_get_bits(sk_SSL_CIPHER_value(cipher_list, i), &cipher_ptr->alg_bits);
+	}
+
+	SSL_free(ssl);
+	SSL_CTX_free(ctx);
+
+	return true;
+}
+
+/**
  * Wrapper to call a python function. It prepares all required objects and handles errors.
  *
  * @param py_object The object

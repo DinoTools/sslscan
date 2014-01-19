@@ -163,6 +163,7 @@ int get_ssl_method_name(const SSL_METHOD *ssl_method, char *name, size_t len);
 PyObject *new_client_result(struct sslCheckOptions *options);
 PyObject *new_host_result();
 int parseHostString(char *host, struct sslCheckOptions *options);
+int populate_ciphers(struct sslCheckOptions *options, const SSL_METHOD *ssl_method);
 int py_call_function(PyObject *py_obj, const char *name, PyObject *py_args, PyObject **py_result);
 void readLine(FILE *input, char *lineFromFile, int maxSize);
 int readOrLogAndClose(int fd, void* buffer, size_t len, const struct sslCheckOptions *options);

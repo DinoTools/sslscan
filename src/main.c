@@ -146,137 +146,36 @@ void print_version()
 	printf("%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_version, SSLeay_version(SSLEAY_VERSION), RESET);
 }
 
-/**
- * Adds Ciphers to the Cipher List structure
- *
- * @param options Options for this run
- * @param ssl_method SSL method to populate ciphers for.
- * @return Boolean: true = success | false = error
- */
-int populate_ciphers(struct sslCheckOptions *options, const SSL_METHOD *ssl_method)
-{
-	struct sslCipher *cipher_ptr;
-	int i;
-	// STACK_OF is a sign that you should be using C++ :)
-	STACK_OF(SSL_CIPHER) *cipher_list;
-	SSL_CTX *ctx;
-	SSL *ssl = NULL;
-
-	ctx = SSL_CTX_new(ssl_method);
-	if (ctx == NULL) {
-		printf("%sERROR: Could not create CTX object.%s\n", COL_RED, RESET);
-		return false;
-	}
-
-	SSL_CTX_set_cipher_list(ctx, "ALL:COMPLEMENTOFALL");
-
-	ssl = SSL_new(ctx);
-	if (ssl == NULL) {
-		printf("%sERROR: Could not create SSL object.%s\n", COL_RED, RESET);
-		SSL_CTX_free(ctx);
-		return false;
-	}
-
-	cipher_list = SSL_get_ciphers(ssl);
-
-	if (options->ciphers != NULL) {
-		cipher_ptr = options->ciphers;
-		while (cipher_ptr->next != NULL)
-			cipher_ptr = cipher_ptr->next;
-	}
-
-	// Create Cipher Struct Entries...
-	for (i = 0; i < sk_SSL_CIPHER_num(cipher_list); i++) {
-		if (options->ciphers == NULL) {
-			options->ciphers = malloc(sizeof(struct sslCipher));
-			cipher_ptr = options->ciphers;
-		} else {
-			cipher_ptr->next = malloc(sizeof(struct sslCipher));
-			cipher_ptr = cipher_ptr->next;
-		}
-
-		memset(cipher_ptr, 0, sizeof(struct sslCipher));
-		cipher_ptr->next = NULL;
-
-		// Add cipher information...
-		cipher_ptr->sslMethod = ssl_method;
-		cipher_ptr->name = SSL_CIPHER_get_name(sk_SSL_CIPHER_value(cipher_list, i));
-		cipher_ptr->version = SSL_CIPHER_get_version(sk_SSL_CIPHER_value(cipher_list, i));
-		SSL_CIPHER_description(sk_SSL_CIPHER_value(cipher_list, i), cipher_ptr->description, sizeof(cipher_ptr->description) - 1);
-		cipher_ptr->bits = SSL_CIPHER_get_bits(sk_SSL_CIPHER_value(cipher_list, i), &cipher_ptr->alg_bits);
-	}
-
-	SSL_free(ssl);
-	SSL_CTX_free(ctx);
-
-	return true;
-}
-
-/**
- * Initialize OpenSSL
- * - Add algorithms
- * - Load strings
- * - populate ciphers
- */
-void init_ssl(struct sslCheckOptions *options)
+int init(int argc, char *argv[], struct sslCheckOptions *options)
 {
 	SSLeay_add_all_algorithms();
 	ERR_load_crypto_strings();
-
-	// Build a list of ciphers...
-#ifndef OPENSSL_NO_SSL2
-	if (options->ssl_versions & ssl_v2)
-		populate_ciphers(options, SSLv2_client_method());
-#endif
-	if (options->ssl_versions & ssl_v3)
-		populate_ciphers(options, SSLv3_client_method());
-
-	if (options->ssl_versions & tls_v10)
-		populate_ciphers(options, TLSv1_client_method());
-
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-	if (options->ssl_versions & tls_v11)
-		populate_ciphers(options, TLSv1_1_client_method());
-	if (options->ssl_versions & tls_v12)
-		populate_ciphers(options, TLSv1_2_client_method());
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-}
-
-int main(int argc, char *argv[])
-{
-	// Variables...
-	struct sslCheckOptions options;
-	struct sslCipher *sslCipherPointer;
-	int status=0;
-	int argLoop;
-	int xmlArg;
-	int mode = mode_help;
-
 	// Init...
-	memset(&options, 0, sizeof(struct sslCheckOptions));
-	xmlArg = 0;
-	strcpy(options.host, "127.0.0.1");
-	options.service[0] = '\0';
-	options.bindLocalAddress = false;
-	options.forceAddressFamily = FORCE_AF_UNSPEC;
-	options.noFailed = false;
-	options.reneg = false;
-	options.starttls_ftp = false;
-	options.starttls_imap = false;
-	options.starttls_pop3 = false;
-	options.starttls_smtp = false;
-	options.starttls_xmpp = false;
-	options.verbose = false;
-	options.targets = NULL;
-	options.connection_delay = 0;
-	options.connection_time.tv_sec = 0;
-	options.connection_time.tv_usec = 0;
+	memset(options, 0, sizeof(struct sslCheckOptions));
+	// ToDo:
+	//xmlArg = 0;
+	strcpy(options->host, "127.0.0.1");
+	options->service[0] = '\0';
+	options->bindLocalAddress = false;
+	options->forceAddressFamily = FORCE_AF_UNSPEC;
+	options->noFailed = false;
+	options->reneg = false;
+	options->starttls_ftp = false;
+	options->starttls_imap = false;
+	options->starttls_pop3 = false;
+	options->starttls_smtp = false;
+	options->starttls_xmpp = false;
+	options->verbose = false;
+	options->targets = NULL;
+	options->connection_delay = 0;
+	options->connection_time.tv_sec = 0;
+	options->connection_time.tv_usec = 0;
 
-	options.ssl_versions = ssl_all;
-	options.pout = false;
+	options->ssl_versions = ssl_all;
+	options->pout = false;
 	SSL_library_init();
 
-#ifdef PYTHON_SUPPORT
+
 	wchar_t progname[255 + 1];
 	mbstowcs(progname, argv[0], strlen(argv[0]) + 1);
 	Py_SetProgramName(progname);
@@ -304,200 +203,283 @@ int main(int argc, char *argv[])
 		// ToDo:
 		return 1;
 	}
-	options.py_output_handler = PyObject_GetAttrString(py_module, "output");
-	options.py_service_handler = PyObject_GetAttrString(py_module, "service");
-#endif
+	options->py_output_handler = PyObject_GetAttrString(py_module, "output");
+	options->py_service_handler = PyObject_GetAttrString(py_module, "service");
+	return 0;
+}
+
+/**
+ * Try to free all alloceted  memory
+ */
+int finalize(struct sslCheckOptions *options)
+{
+	Py_Finalize();
+	return 0;
+}
+
+/**
+ * Parse commandline args
+ */
+int parse_args(int argc, char *argv[], struct sslCheckOptions *options)
+{
+	PyObject *py_tmp;
+	int i;
 
 	// Get program parameters
-	for (argLoop = 1; argLoop < argc; argLoop++)
+	for (i = 1; i < argc; i++)
 	{
-		if (strcmp("--help", argv[argLoop]) == 0) {
+		if (strcmp("--help", argv[i]) == 0) {
 			print_help(argv[0]);
 			return 0;
-		} else if ((strncmp("--help-output=", argv[argLoop], 14) == 0) && (strlen(argv[argLoop]) > 14)) {
-			py_tmp = Py_BuildValue("(s)", argv[argLoop] + 14);
-			return py_call_function(options.py_output_handler, "print_help", py_tmp, NULL);
-		} else if (strcmp("--help-outputs", argv[argLoop]) == 0) {
-			return py_call_function(options.py_output_handler, "print_help", NULL, NULL);
-		} else if (strcmp("--help-output-list", argv[argLoop]) == 0) {
-			return py_call_function(options.py_output_handler, "print_list", NULL, NULL);
-		} else if ((strncmp("--targets=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10)) {
-			options.targets = argv[argLoop] + 10;
 		}
 
-		// force IPv4 or IPv6
-		else if ((strcmp("--ipv4", argv[argLoop]) == 0))
-			options.forceAddressFamily = FORCE_AF_INET4;
-
-		else if ((strcmp("--ipv6", argv[argLoop]) == 0))
-			options.forceAddressFamily = FORCE_AF_INET6;
-
-		// localip
-		else if ((strncmp("--localip=", argv[argLoop], 10) == 0) && (strlen(argv[argLoop]) > 10))
-		{
-			options.bindLocalAddress = true;
-			strncpy(options.localAddress, argv[argLoop] + 10, sizeof(options.localAddress));
-		} else if ((strncmp("--connection_delay=", argv[argLoop], 19) == 0) && (strlen(argv[argLoop]) > 19)) {
-			options.connection_delay = strtol(argv[argLoop] + 19, NULL, 10);
+		if ((strncmp("--help-output=", argv[i], 14) == 0) && (strlen(argv[i]) > 14)) {
+			py_tmp = Py_BuildValue("(s)", argv[i] + 14);
+			return py_call_function(options->py_output_handler, "print_help", py_tmp, NULL);
 		}
 
-		// Show only supported
-		else if (strcmp("--no-failed", argv[argLoop]) == 0)
-			options.noFailed = true;
+		if (strcmp("--help-outputs", argv[i]) == 0) {
+			return py_call_function(options->py_output_handler, "print_help", NULL, NULL);
+		}
 
-		// Version
-		else if (strcmp("--version", argv[argLoop]) == 0) {
+		if (strcmp("--help-output-list", argv[i]) == 0) {
+			return py_call_function(options->py_output_handler, "print_list", NULL, NULL);
+		}
+
+		if ((strncmp("--targets=", argv[i], 10) == 0) && (strlen(argv[i]) > 10)) {
+			options->targets = argv[i] + 10;
+			continue;
+		}
+
+		if ((strcmp("--ipv4", argv[i]) == 0)) {
+			options->forceAddressFamily = FORCE_AF_INET4;
+			continue;
+		}
+
+		if ((strcmp("--ipv6", argv[i]) == 0)) {
+			options->forceAddressFamily = FORCE_AF_INET6;
+			continue;
+		}
+
+		if ((strncmp("--localip=", argv[i], 10) == 0) && (strlen(argv[i]) > 10)) {
+			options->bindLocalAddress = true;
+			strncpy(options->localAddress, argv[i] + 10, sizeof(options->localAddress));
+			continue;
+		}
+
+		if ((strncmp("--connection_delay=", argv[i], 19) == 0) && (strlen(argv[i]) > 19)) {
+			options->connection_delay = strtol(argv[i] + 19, NULL, 10);
+			continue;
+		}
+
+		if (strcmp("--no-failed", argv[i]) == 0) {
+			options->noFailed = true;
+			continue;
+		}
+
+		if (strcmp("--version", argv[i]) == 0) {
 			print_version();
 			return 0;
 		}
 
-		// XML Output
-		else if (strncmp("--xml=", argv[argLoop], 6) == 0)
-			xmlArg = argLoop;
+		if (strncmp("--xml=", argv[i], 6) == 0) {
+			//ToDo
+			//xmlArg = i;
+			continue;
+		}
 
-		// Verbose
-		else if (strcmp("--verbose", argv[argLoop]) == 0)
-			options.verbose = true;
+		if (strcmp("--verbose", argv[i]) == 0) {
+			options->verbose = true;
+			continue;
+		}
 
-		// P Output
-		else if (strcmp("-p", argv[argLoop]) == 0)
-			options.pout = true;
+		if (strcmp("-p", argv[i]) == 0) {
+			options->pout = true;
+			continue;
+		}
 
 		// Client Certificates
-		else if (strncmp("--certs=", argv[argLoop], 8) == 0)
-			options.clientCertsFile = argv[argLoop] +8;
+		if (strncmp("--certs=", argv[i], 8) == 0) {
+			options->clientCertsFile = argv[i] +8;
+			continue;
+		}
 
 		// Private Key File
-		else if (strncmp("--pk=", argv[argLoop], 5) == 0)
-			options.privateKeyFile = argv[argLoop] +5;
+		if (strncmp("--pk=", argv[i], 5) == 0) {
+			options->privateKeyFile = argv[i] +5;
+			continue;
+		}
 
 		// Private Key Password
-		else if (strncmp("--pkpass=", argv[argLoop], 9) == 0)
-			options.privateKeyPassword = argv[argLoop] +9;
+		if (strncmp("--pkpass=", argv[i], 9) == 0) {
+			options->privateKeyPassword = argv[i] +9;
+			continue;
+		}
 
 		// Should we check for TLS renegotiation?
-		else if (strcmp("--renegotiation", argv[argLoop]) == 0)
-		{
-			options.reneg = true;
+		if (strcmp("--renegotiation", argv[i]) == 0) {
+			options->reneg = true;
+			continue;
 		}
 
 		// StartTLS... FTP
-		else if (strcmp("--starttls-ftp", argv[argLoop]) == 0)
-		{
-			options.ssl_versions = tls_v10;
-			options.starttls_ftp = true;
+		if (strcmp("--starttls-ftp", argv[i]) == 0) {
+			options->ssl_versions = tls_v10;
+			options->starttls_ftp = true;
+			continue;
 		}
+
 		// StartTLS... IMAP
-		else if (strcmp("--starttls-imap", argv[argLoop]) == 0)
-		{
-			options.ssl_versions = tls_v10;
-			options.starttls_imap = true;
+		if (strcmp("--starttls-imap", argv[i]) == 0) {
+			options->ssl_versions = tls_v10;
+			options->starttls_imap = true;
+			continue;
 		}
+
 		// StartTLS... POP3
-		else if (strcmp("--starttls-pop3", argv[argLoop]) == 0)
-		{
-			options.ssl_versions = tls_v10;
-			options.starttls_pop3 = true;
+		if (strcmp("--starttls-pop3", argv[i]) == 0) {
+			options->ssl_versions = tls_v10;
+			options->starttls_pop3 = true;
+			continue;
 		}
+
 		// StartTLS... SMTP
-		else if (strcmp("--starttls-smtp", argv[argLoop]) == 0)
-		{
-			options.ssl_versions = tls_v10;
-			options.starttls_smtp = true;
+		if (strcmp("--starttls-smtp", argv[i]) == 0) {
+			options->ssl_versions = tls_v10;
+			options->starttls_smtp = true;
+			continue;
 		}
+
 		// StartTLS... XMPP
-		else if (strcmp("--starttls-xmpp", argv[argLoop]) == 0)
-		{
-			options.ssl_versions = tls_v10;
-			options.starttls_xmpp = true;
+		if (strcmp("--starttls-xmpp", argv[i]) == 0) {
+			options->ssl_versions = tls_v10;
+			options->starttls_xmpp = true;
+			continue;
 		}
+
 		// XMPP... Domain
-		else if (strncmp("--xmpp-domain=", argv[argLoop], 14) == 0)
-		{
-			options.xmpp_domain = argv[argLoop] +14;
+		if (strncmp("--xmpp-domain=", argv[i], 14) == 0) {
+			options->xmpp_domain = argv[i] +14;
+			continue;
+		}
 
 #ifndef OPENSSL_NO_SSL2
-		} else if (strcmp("--ssl2", argv[argLoop]) == 0) {
-			options.ssl_versions = ssl_v2;
+		if (strcmp("--ssl2", argv[i]) == 0) {
+			options->ssl_versions = ssl_v2;
+			continue;
+		}
 #endif // #ifndef OPENSSL_NO_SSL2
 
-		} else if (strcmp("--ssl3", argv[argLoop]) == 0) {
-			options.ssl_versions = ssl_v3;
-		} else if (strcmp("--tls1", argv[argLoop]) == 0) {
-			options.ssl_versions = tls_v10;
+		if (strcmp("--ssl3", argv[i]) == 0) {
+			options->ssl_versions = ssl_v3;
+			continue;
+		}
+
+		if (strcmp("--tls1", argv[i]) == 0) {
+			options->ssl_versions = tls_v10;
+			continue;
+		}
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-		} else if (strcmp("--tls11", argv[argLoop]) == 0) {
-			options.ssl_versions = tls_v11;
-		} else if (strcmp("--tls12", argv[argLoop]) == 0) {
-			options.ssl_versions = tls_v12;
+		if (strcmp("--tls11", argv[i]) == 0) {
+			options->ssl_versions = tls_v11;
+			continue;
+		}
+
+		if (strcmp("--tls12", argv[i]) == 0) {
+			options->ssl_versions = tls_v12;
+			continue;
+		}
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
-		} else if (strcmp("--no_ssl2", argv[argLoop]) == 0) {
-			options.ssl_versions &= ~ssl_v2;
-		} else if (strcmp("--no_ssl3", argv[argLoop]) == 0) {
-			options.ssl_versions &= ~ssl_v3;
-		} else if (strcmp("--no_tls1", argv[argLoop]) == 0) {
-			options.ssl_versions &= ~tls_v10;
-		} else if (strcmp("--no_tls11", argv[argLoop]) == 0) {
-			options.ssl_versions &= ~tls_v11;
-		} else if (strcmp("--no_tls12", argv[argLoop]) == 0) {
-			options.ssl_versions &= ~tls_v12;
+		if (strcmp("--no_ssl2", argv[i]) == 0) {
+			options->ssl_versions &= ~ssl_v2;
+			continue;
+		}
 
-		} else if (strcmp("--bugs", argv[argLoop]) == 0)
-			options.sslbugs = 1;
+		if (strcmp("--no_ssl3", argv[i]) == 0) {
+			options->ssl_versions &= ~ssl_v3;
+			continue;
+		}
+
+		if (strcmp("--no_tls1", argv[i]) == 0) {
+			options->ssl_versions &= ~tls_v10;
+			continue;
+		}
+
+		if (strcmp("--no_tls11", argv[i]) == 0) {
+			options->ssl_versions &= ~tls_v11;
+			continue;
+		}
+
+		if (strcmp("--no_tls12", argv[i]) == 0) {
+			options->ssl_versions &= ~tls_v12;
+			continue;
+		}
+
+		if (strcmp("--bugs", argv[i]) == 0) {
+			options->sslbugs = 1;
+			continue;
+		}
 
 		// SSL HTTP Get...
-		else if (strcmp("--http", argv[argLoop]) == 0) {
-			options.http = 1;
+		else if (strcmp("--http", argv[i]) == 0) {
+			options->http = 1;
+			continue;
+		}
 
-#ifdef PYTHON_SUPPORT
-		} else if (strncmp("--output=", argv[argLoop], 9) == 0) {
-			if(options.py_output_handler == NULL) {
+		if (strncmp("--output=", argv[i], 9) == 0) {
+			if(options->py_output_handler == NULL) {
 				printf("No output handler");
 				continue;
 			}
 
-			PyObject *py_func = PyObject_GetAttrString(options.py_output_handler, "load_from_string");
+			PyObject *py_func = PyObject_GetAttrString(options->py_output_handler, "load_from_string");
 			PyObject *py_args = PyTuple_New(1);
-			PyTuple_SetItem(py_args, 0, PyUnicode_FromString(argv[argLoop] + 9));
+			PyTuple_SetItem(py_args, 0, PyUnicode_FromString(argv[i] + 9));
 			PyObject *py_result = PyObject_CallObject(py_func, py_args);
 			if(py_result == NULL) {
 				PyErr_Print();
 			}
-
-#endif
-		// Host (maybe port too)...
-		} else if (argLoop + 1 == argc) {
-			mode = mode_single;
-
-			// Get host...
-			parseHostString(argv[argLoop], &options);
-		} else {
-			print_help(argv[0]);
-			// ToDo: define error codes
-			return 1;
+			continue;
 		}
+
+		// Host
+		if (strncmp("--", argv[i], 2) != 0) {
+			// Get host...
+			parseHostString(argv[i], options);
+			continue;
+		}
+
+		print_help(argv[0]);
+		// ToDo: define error codes
+		return 1;
 	}
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	// Variables...
+	struct sslCheckOptions options;
+	int status=0;
+
+	status = init(argc, argv, &options);
+	if (status != 0)
+		return status;
+
+	status = parse_args(argc, argv, &options);
 
 	printf("%s%s\t\t%s\n\t\t%s\n%s\n", COL_BLUE, program_banner, program_version,
 			SSLeay_version(SSLEAY_VERSION), RESET);
 
-	init_ssl(&options);
-
 	status = run_tests(&options);
+	if (status != 0)
+		return status;
 
-	// Free Structures
-	while (options.ciphers != 0)
-	{
-		sslCipherPointer = options.ciphers->next;
-		free(options.ciphers);
-		options.ciphers = sslCipherPointer;
-	}
-
-#ifdef PYTHON_SUPPORT
-	Py_Finalize();
-#endif
+	status = finalize(&options);
+	if (status != 0)
+		return status;
 
 	return status;
 }

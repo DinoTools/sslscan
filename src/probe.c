@@ -290,6 +290,21 @@ int tcpConnect(struct sslCheckOptions *options)
 	return socketDescriptor;
 }
 
+/**
+ * Try to free all alloceted  memory
+ */
+int finalize_probe(struct sslCheckOptions *options)
+{
+	struct sslCipher *cipher;
+
+	// Free Structures
+	while (options->ciphers != NULL) {
+		cipher = options->ciphers->next;
+		free(options->ciphers);
+		options->ciphers = cipher;
+	}
+	return true;
+}
 
 // Get certificate...
 int get_certificate(struct sslCheckOptions *options)
@@ -544,6 +559,33 @@ int get_certificate(struct sslCheckOptions *options)
 	return status;
 }
 
+/**
+ * Initialize OpenSSL
+ * - Add algorithms
+ * - Load strings
+ * - populate ciphers
+ */
+int init_probe(struct sslCheckOptions *options)
+{
+	// Build a list of ciphers...
+#ifndef OPENSSL_NO_SSL2
+	if (options->ssl_versions & ssl_v2)
+		populate_ciphers(options, SSLv2_client_method());
+#endif
+	if (options->ssl_versions & ssl_v3)
+		populate_ciphers(options, SSLv3_client_method());
+
+	if (options->ssl_versions & tls_v10)
+		populate_ciphers(options, TLSv1_client_method());
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	if (options->ssl_versions & tls_v11)
+		populate_ciphers(options, TLSv1_1_client_method());
+	if (options->ssl_versions & tls_v12)
+		populate_ciphers(options, TLSv1_2_client_method());
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	return true;
+}
 
 // Load client certificates/private keys...
 int loadCerts(struct sslCheckOptions *options)
@@ -678,6 +720,9 @@ int run_tests(struct sslCheckOptions *options)
 	char line[1024];
 	int status = 0;
 
+	if(!init_probe(options))
+		return false;
+
 #ifdef PYTHON_SUPPORT
 	PyObject *result_list = PyList_New(0);
 #endif
@@ -751,6 +796,10 @@ int run_tests(struct sslCheckOptions *options)
 		PyErr_Print();
 	}
 #endif
+
+	if(!finalize_probe(options))
+		return false;
+
 	return 0;
 }
 
