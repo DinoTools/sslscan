@@ -80,6 +80,18 @@ class Legacy(Output):
             else:
                 print("   Public Key: Could not load")
 
+            print("    X509v3 Extensions:")
+            extensions = x509.get_extensions()
+            if extensions:
+                for ext in extensions:
+                    print(
+                        "      %s: %s" % (
+                            ext.get_name(),
+                            "critical" if ext.get_critical() else ""
+                        )
+                    )
+                    print(ext.get_value(8))
+
             print("  Verify Certificate:")
             verfy_status = host.get("certificate.verify.status", None)
             if verfy_status:
