@@ -14,7 +14,13 @@ typedef struct {
 	X509 *x509;
 } sslscan_ssl_x509_obj;
 
+typedef struct {
+	PyObject_HEAD
+	X509_EXTENSION *extension;
+} sslscan_ssl_x509ext_obj;
+
 extern PyTypeObject sslscan_ssl_pkey_Type;
 extern PyTypeObject sslscan_ssl_x509_Type;
+extern PyTypeObject sslscan_ssl_x509ext_Type;
 
 #endif

@@ -1,5 +1,33 @@
 #include "sslscan_ssl.h"
 
+static char sslscan_ssl_x509_get_extensions_doc[] = "";
+
+static PyObject *sslscan_ssl_x509_get_extensions(sslscan_ssl_x509_obj *self, PyObject *args)
+{
+	int i;
+	X509_EXTENSION *extension;
+	PyObject *py_extensions;
+	sslscan_ssl_x509ext_obj *py_extension;
+
+	if (!PyArg_ParseTuple(args, ":get_extensions"))
+		return NULL;
+
+	// X509 v3
+	if ((X509_FLAG_COMPAT & X509_FLAG_NO_EXTENSIONS))
+		return Py_BuildValue("");
+
+	py_extensions = PyList_New(0);
+
+	for (i = 0; i < sk_X509_EXTENSION_num(self->x509->cert_info->extensions); i++)
+	{
+		py_extension = PyObject_New(sslscan_ssl_x509ext_obj, &sslscan_ssl_x509ext_Type);
+		py_extension->extension = sk_X509_EXTENSION_value(self->x509->cert_info->extensions, i);
+
+		PyList_Append(py_extensions, (PyObject *)py_extension);
+	}
+	return py_extensions;
+}
+
 static char sslscan_ssl_x509_get_version_doc[] = "";
 
 static PyObject *sslscan_ssl_x509_get_version(sslscan_ssl_x509_obj *self, PyObject *args)
@@ -304,6 +332,7 @@ static int sslscan_ssl_x509_tp_init(sslscan_ssl_x509_obj *self, PyObject *args, 
 #define ADD_METHOD(name) { #name, (PyCFunction)sslscan_ssl_x509_##name, METH_VARARGS, sslscan_ssl_x509_##name##_doc }
 
 static PyMethodDef sslscan_ssl_x509_tp_methods[] = {
+	ADD_METHOD(get_extensions),
 	ADD_METHOD(get_version),
 	ADD_METHOD(get_serial_number),
 	ADD_METHOD(get_signature_algorithm),
@@ -315,6 +344,8 @@ static PyMethodDef sslscan_ssl_x509_tp_methods[] = {
 	ADD_METHOD(get_public_key),
 	{NULL, NULL}  /* Sentinel */
 };
+
+#undef ADD_METHOD
 
 /*static PyMemberDef sslscan_ssl_x509_tp_members[] = {
 	{NULL} 
