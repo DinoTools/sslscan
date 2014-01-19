@@ -29,14 +29,14 @@ static PyModuleDef ssl_module = {
 };
 #endif
 
-static PyObject * sslscan_ssl_module_init(void)
+PySSLSCAN_MODINIT(ssl)
 {
 	PyObject *py_ssl_obj;
 	PyObject *py_tmp_obj;
 #if PY_MAJOR_VERSION >= 3
 	py_ssl_obj = PyModule_Create(&ssl_module);
 #else
-	// TODO
+	py_ssl_obj = Py_InitModule3("ssl", ssl_m_methods, ssl_m_doc);
 #endif
 	if(!py_ssl_obj)
 		return NULL;
@@ -52,15 +52,3 @@ static PyObject * sslscan_ssl_module_init(void)
 	PyModule_AddType(py_ssl_obj, "PublicKey", &sslscan_ssl_pkey_Type);
 	return py_ssl_obj;
 }
-
-#if PY_MAJOR_VERSION < 3
-    PyMODINIT_FUNC PyInit_ssl(void)
-    {
-        sslscan_ssl_module_init();
-    }
-#else
-    PyMODINIT_FUNC PyInit_ssl(void)
-    {
-        return sslscan_ssl_module_init();
-    }
-#endif

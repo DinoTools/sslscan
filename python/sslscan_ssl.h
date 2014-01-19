@@ -2,6 +2,7 @@
 #define _SSLSCAN_SSL_H
 #include <Python.h>
 #include <openssl/ssl.h>
+#include "py_compat.h"
 
 typedef struct {
 	PyObject_HEAD
