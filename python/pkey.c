@@ -34,7 +34,6 @@ static PyObject * sslscan_ssl_pkey_get_key_print(sslscan_ssl_pkey_obj *self, PyO
 	char *buffer;
 	long len;
 	PyObject *res = Py_BuildValue("");
-	int tmp_int;
 	int status = 0;
 	int indent = 0;
 
@@ -105,7 +104,7 @@ static int sslscan_ssl_pkey_tp_init(sslscan_ssl_pkey_obj *self, PyObject *args, 
 	return 0;
 }
 
-static int sslscan_ssl_pkey_tp_dealloc(sslscan_ssl_pkey_obj *self)
+static void sslscan_ssl_pkey_tp_dealloc(sslscan_ssl_pkey_obj *self)
 {
 	if (self->key != NULL)
 		EVP_PKEY_free(self->key);
@@ -134,7 +133,7 @@ PyTypeObject sslscan_ssl_pkey_Type = {
 	"PublicKey",                       /*tp_name*/
 	sizeof(sslscan_ssl_pkey_obj),             /*tp_basicsize*/
 	0,                                        /*tp_itemsize*/
-	sslscan_ssl_pkey_tp_dealloc,               /*tp_dealloc*/
+	(destructor)sslscan_ssl_pkey_tp_dealloc,  /*tp_dealloc*/
 	0,                                        /*tp_print*/
 	0,                                        /*tp_getattr*/
 	0,                                        /*tp_setattr*/

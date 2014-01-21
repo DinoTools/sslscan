@@ -1,8 +1,9 @@
 #ifndef _SSLSCAN_SSL_H
 #define _SSLSCAN_SSL_H
 #include <Python.h>
-#include <openssl/ssl.h>
 #include "py_compat.h"
+#include <openssl/ssl.h>
+#include <openssl/x509v3.h>
 
 typedef struct {
 	PyObject_HEAD

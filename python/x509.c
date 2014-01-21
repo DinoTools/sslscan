@@ -5,7 +5,6 @@ static char sslscan_ssl_x509_get_extensions_doc[] = "";
 static PyObject *sslscan_ssl_x509_get_extensions(sslscan_ssl_x509_obj *self, PyObject *args)
 {
 	int i;
-	X509_EXTENSION *extension;
 	PyObject *py_extensions;
 	sslscan_ssl_x509ext_obj *py_extension;
 
@@ -50,7 +49,7 @@ static PyObject *sslscan_ssl_x509_get_public_key(sslscan_ssl_x509_obj *self, PyO
 		py_obj->x509 = self->x509;
 		py_obj->key = X509_get_pubkey(self->x509);
 	} else {
-		py_obj = Py_BuildValue("");
+		return Py_BuildValue("");
 	}
 	return (PyObject*)py_obj;
 }
@@ -83,10 +82,9 @@ static char sslscan_ssl_x509_get_signature_algorithm_doc[] = "";
 
 static PyObject * sslscan_ssl_x509_get_signature_algorithm(sslscan_ssl_x509_obj *self, PyObject *args)
 {
-	BIO *bp;
-	char *tmp_buffer_ptr;
-	long tmp_long;
-	PyObject *res = Py_BuildValue("");
+	//char *tmp_buffer_ptr;
+	//long tmp_long;
+	//PyObject *res = Py_BuildValue("");
 
 	if (!PyArg_ParseTuple(args, ":get_serial_number"))
 		return Py_BuildValue("");
@@ -131,10 +129,7 @@ static char sslscan_ssl_x509_get_issuer_doc[] = "";
 
 static PyObject * sslscan_ssl_x509_get_issuer(sslscan_ssl_x509_obj *self, PyObject *args)
 {
-	BIO *bp;
 	char buffer[512];
-	char *tmp_buffer_ptr;
-	long tmp_long;
 	PyObject *res = Py_BuildValue("");
 
 	if (!PyArg_ParseTuple(args, ":get_issuer"))
@@ -151,10 +146,7 @@ static char sslscan_ssl_x509_get_subject_doc[] = "";
 
 static PyObject * sslscan_ssl_x509_get_subject(sslscan_ssl_x509_obj *self, PyObject *args)
 {
-	BIO *bp;
 	char buffer[512];
-	char *tmp_buffer_ptr;
-	long tmp_long;
 	PyObject *res = Py_BuildValue("");
 
 	if (!PyArg_ParseTuple(args, ":get_issuer"))
@@ -207,8 +199,7 @@ static char sslscan_ssl_x509_get_not_after_doc[] = "";
 static PyObject * sslscan_ssl_x509_get_not_after(sslscan_ssl_x509_obj *self, PyObject *args)
 {
 	BIO *bp;
-	char buffer[512];
-	char *tmp_buffer_ptr;
+	char *buffer;
 	long tmp_long;
 	PyObject *res = Py_BuildValue("");
 	int mode=0;
@@ -224,11 +215,11 @@ static PyObject * sslscan_ssl_x509_get_not_after(sslscan_ssl_x509_obj *self, PyO
 			return Py_BuildValue("");
 
 		ASN1_TIME_print(bp, X509_get_notAfter(self->x509));
-		tmp_long = BIO_get_mem_data(bp, &tmp_buffer_ptr);
-		res = PyUnicode_FromStringAndSize(tmp_buffer_ptr, tmp_long);
-		if(tmp_buffer_ptr != NULL) {
-			free(tmp_buffer_ptr);
-			tmp_buffer_ptr = NULL;
+		tmp_long = BIO_get_mem_data(bp, &buffer);
+		res = PyUnicode_FromStringAndSize(buffer, tmp_long);
+		if(buffer != NULL) {
+			free(buffer);
+			         buffer = NULL;
 		}
 		BIO_set_close(bp, BIO_NOCLOSE);
 		BIO_free(bp);
@@ -245,8 +236,7 @@ static char sslscan_ssl_x509_get_not_before_doc[] = "";
 static PyObject * sslscan_ssl_x509_get_not_before(sslscan_ssl_x509_obj *self, PyObject *args)
 {
 	BIO *bp;
-	char buffer[512];
-	char *tmp_buffer_ptr;
+	char *buffer;
 	long tmp_long;
 	PyObject *res = Py_BuildValue("");
 	int mode=0;
@@ -262,11 +252,11 @@ static PyObject * sslscan_ssl_x509_get_not_before(sslscan_ssl_x509_obj *self, Py
 			return Py_BuildValue("");
 
 		ASN1_TIME_print(bp, X509_get_notBefore(self->x509));
-		tmp_long = BIO_get_mem_data(bp, &tmp_buffer_ptr);
-		res = PyUnicode_FromStringAndSize(tmp_buffer_ptr, tmp_long);
-		if(tmp_buffer_ptr != NULL) {
-			free(tmp_buffer_ptr);
-			tmp_buffer_ptr = NULL;
+		tmp_long = BIO_get_mem_data(bp, &buffer);
+		res = PyUnicode_FromStringAndSize(buffer, tmp_long);
+		if(buffer != NULL) {
+			free(buffer);
+			buffer = NULL;
 		}
 		BIO_set_close(bp, BIO_NOCLOSE);
 		BIO_free(bp);
@@ -283,7 +273,7 @@ static char sslscan_ssl_x509_get_certificate_blob_doc[] = "";
 static PyObject * sslscan_ssl_x509_get_certificate_blob(sslscan_ssl_x509_obj *self, PyObject *args)
 {
 	BIO *bp;
-	char *tmp_buffer_ptr;
+	char *buffer;
 	long tmp_long;
 	PyObject *res = Py_BuildValue("");
 
@@ -295,12 +285,12 @@ static PyObject * sslscan_ssl_x509_get_certificate_blob(sslscan_ssl_x509_obj *se
 		return Py_BuildValue("");
 
 	PEM_write_bio_X509(bp, self->x509);
-	tmp_long = BIO_get_mem_data(bp, &tmp_buffer_ptr);
-	res = PyUnicode_FromStringAndSize(tmp_buffer_ptr, tmp_long);
+	tmp_long = BIO_get_mem_data(bp, &buffer);
+	res = PyUnicode_FromStringAndSize(buffer, tmp_long);
 
-	if(tmp_buffer_ptr != NULL) {
-		free(tmp_buffer_ptr);
-		tmp_buffer_ptr = NULL;
+	if(buffer != NULL) {
+		free(buffer);
+		      buffer = NULL;
 	}
 	BIO_set_close(bp, BIO_NOCLOSE);
 	BIO_free(bp);

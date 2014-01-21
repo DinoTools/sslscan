@@ -17,8 +17,6 @@ static char sslscan_ssl_x509ext_get_data_doc[] = "";
 
 static PyObject * sslscan_ssl_x509ext_get_data(sslscan_ssl_x509ext_obj *self, PyObject *args)
 {
-	char buffer[512];
-	ASN1_OBJECT *asn1_obj;
 	ASN1_OCTET_STRING *data;
 	
 	if (!PyArg_ParseTuple(args, ":get_data"))
@@ -37,7 +35,6 @@ static PyObject * sslscan_ssl_x509ext_get_name(sslscan_ssl_x509ext_obj *self, Py
 {
 	char buffer[512];
 	ASN1_OBJECT *asn1_obj;
-	ASN1_OCTET_STRING *data;
 	
 	if (!PyArg_ParseTuple(args, ":get_data"))
 		return NULL;
@@ -84,7 +81,6 @@ static PyObject * sslscan_ssl_x509ext_get_value(sslscan_ssl_x509ext_obj *self, P
 {
 	BIO *bp;
 	char *buffer;
-	ASN1_OBJECT *asn1_obj;
 	long len;
 	int i;
 	int indent = 0;
@@ -122,7 +118,7 @@ static PyObject * sslscan_ssl_x509ext_get_value(sslscan_ssl_x509ext_obj *self, P
 
 static PyObject * sslscan_ssl_x509ext_tp_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
-	PyObject *tmp_obj;
+	//PyObject *tmp_obj;
 	sslscan_ssl_x509ext_obj *self;
 	self = PyObject_New(sslscan_ssl_x509ext_obj, &sslscan_ssl_x509ext_Type);
 	/*if (PyArg_ParseTuple(args, ":Extension", &tmp_obj)) {
@@ -147,6 +143,7 @@ static PyMethodDef sslscan_ssl_x509ext_tp_methods[] = {
 	ADD_METHOD(get_critical),
 	ADD_METHOD(get_data),
 	ADD_METHOD(get_name),
+	ADD_METHOD(get_short_name),
 	ADD_METHOD(get_value),
 	{NULL, NULL}  /* Sentinel */
 };
