@@ -175,10 +175,14 @@ int init(int argc, char *argv[], struct sslCheckOptions *options)
 	options->pout = false;
 	SSL_library_init();
 
-
+#ifdef IS_PY3K
 	wchar_t progname[255 + 1];
 	mbstowcs(progname, argv[0], strlen(argv[0]) + 1);
 	Py_SetProgramName(progname);
+#else /* IS_PY3K */
+	Py_SetProgramName(argv[0]);
+#endif /* IS_PY3K */
+
 	Py_Initialize();
 	PyObject *py_tmp = PySys_GetObject("path");
 	//PyList_Append(py_tmp, PyUnicode_FromString("./python"));
