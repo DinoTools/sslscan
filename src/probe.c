@@ -903,7 +903,6 @@ int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD 
 	char method_name[32];
 	int method_id = get_ssl_method_name(ssl_method, method_name, sizeof(method_name));
 
-#ifdef PYTHON_SUPPORT
 	PyObject *py_tmp;
 	PyObject *py_ciphers;
 
@@ -927,84 +926,8 @@ int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD 
 	}
 	py_ciphers = PyDict_GetItemString(options->host_result, "ciphers.default");
 	PyDict_SetItemString(py_ciphers, method_name, py_tmp);
-#endif
 
-	if (cipherStatus == 1)
-	{
-#ifndef OPENSSL_NO_SSL2
-		if (ssl_method == SSLv2_client_method())
-		{
-			if (options->xmlOutput != 0)
-				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"SSLv2\" bits=\"");
-			if (options->pout == true)
-				printf("|| SSLv2 || ");
-			else
-				printf("    SSLv2  ");
-		}
-		else if (ssl_method == SSLv3_client_method())
-#else
-		if (ssl_method == SSLv3_client_method())
-#endif
-		{
-			if (options->xmlOutput != 0)
-				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"SSLv3\" bits=\"");
-			if (options->pout == true)
-				printf("|| SSLv3 || ");
-			else
-				printf("    SSLv3  ");
-		}
-		else if (ssl_method == TLSv1_client_method())
-		{
-			if (options->xmlOutput != 0)
-				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLSv1\" bits=\"");
-			if (options->pout == true)
-				printf("|| TLSv1 || ");
-			else
-				printf("    TLSv1  ");
-		}
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-		else if (ssl_method == TLSv1_1_client_method())
-		{
-			if (options->xmlOutput != 0)
-				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLS11\" bits=\"");
-			if (options->pout == true)
-				printf("|| TLS11 || ");
-			else
-				printf("    TLS11  ");
-		}
-		else if (ssl_method == TLSv1_2_client_method())
-		{
-			if (options->xmlOutput != 0)
-				fprintf(options->xmlOutput, "  <defaultcipher sslversion=\"TLSv2\" bits=\"");
-			if (options->pout == true)
-				printf("|| TLS12 || ");
-			else
-				printf("    TLS12  ");
-		}
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-
-		if (SSL_get_cipher_bits(ssl, &tempInt2) < 10)
-			tempInt = 2;
-		else if (SSL_get_cipher_bits(ssl, &tempInt2) < 100)
-			tempInt = 1;
-		else
-			tempInt = 0;
-		if (options->pout == true)
-			printf("%d bits || ", SSL_get_cipher_bits(ssl, &tempInt2));
-		else
-			printf("%d bits  ", SSL_get_cipher_bits(ssl, &tempInt2));
-		while (tempInt != 0)
-		{
-			tempInt--;
-			printf(" ");
-		}
-		if (options->xmlOutput != 0)
-			fprintf(options->xmlOutput, "%d\" cipher=\"%s\" />\n", SSL_get_cipher_bits(ssl, &tempInt2), SSL_get_cipher_name(ssl));
-		if (options->pout == true)
-			printf("%s ||\n", SSL_get_cipher_name(ssl));
-		else
-			printf("%s\n", SSL_get_cipher_name(ssl));
-
+	if (cipherStatus == 1) {
 		// Disconnect SSL over socket
 		SSL_shutdown(ssl);
 	}
