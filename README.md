@@ -16,7 +16,8 @@ Features
 * Perform a HTTP connect
 * IPv4 and IPv6
 * Bind to local IP address
-* Text or XML output
+* Python extensions
+* Text and XML output
 
 
 Install
@@ -27,15 +28,17 @@ Requirements:
 * OpenSSL 1.0.0 or better
 * gcc
 * make
+* cmake
+* openssl-devel
+* python-devel (2.6, 2.7, 3.2 or 3.3 - Python 3.x preferred)
 
 Makefile build:
 
+    mkdir build
+    cd build
+    cmake ..
     make
     make install        (as root)
-
-SSLScan can be built manually using the following command:
-
-    gcc -lssl -o sslscan sslscan.c
 
 
 Usage
