@@ -123,6 +123,8 @@ void print_help(char *prog_name)
 	printf("  %s--bugs%s               Enable SSL implementation  bug work-\n", COL_GREEN, RESET);
 	printf("                       arounds.\n");
 	printf("  %s--xml=<file>%s         Output results to an XML file.\n", COL_GREEN, RESET);
+	printf("  %s--output=handler-name[:option1=value1[:option2=value2[:...]]]%s\n", COL_GREEN, RESET);
+	printf("                       Enable output handler. Can be specified multiple times. (Default: legacy)\n");
 	printf("  %s--version%s            Display the program version.\n", COL_GREEN, RESET);
 	printf("  %s--verbose%s            Display verbose output.\n", COL_GREEN, RESET);
 	printf("  %s--help%s               Display the  help text  you are  now\n", COL_GREEN, RESET);
