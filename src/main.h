@@ -1,6 +1,13 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+// ToDo: remove after all #ifdef checks are removed
+#define PYTHON_SUPPORT
+// Python.h MUST be the first Header-File included
+// http://docs.python.org/3.3/c-api/intro.html
+#include <Python.h>
+#include "../python/py_compat.h"
+
 // Includes...
 #include <string.h>
 
@@ -45,12 +52,6 @@ DWORD dwError;
 
 #ifdef PLAT_FREEBSD
 #include <netinet/in.h>
-#endif
-
-#define PYTHON_SUPPORT
-#ifdef PYTHON_SUPPORT
-#include <Python.h>
-#include "../python/py_compat.h"
 #endif
 
 // Defines...
