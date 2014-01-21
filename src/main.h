@@ -50,6 +50,7 @@ DWORD dwError;
 #define PYTHON_SUPPORT
 #ifdef PYTHON_SUPPORT
 #include <Python.h>
+#include "../python/py_compat.h"
 #endif
 
 // Defines...

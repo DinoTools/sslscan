@@ -36,7 +36,7 @@ PySSLSCAN_MODINIT(ssl)
 #if PY_MAJOR_VERSION >= 3
 	py_ssl_obj = PyModule_Create(&ssl_module);
 #else
-	py_ssl_obj = Py_InitModule3("ssl", ssl_m_methods, ssl_m_doc);
+	py_ssl_obj = Py_InitModule3("sslscan.ssl", ssl_m_methods, ssl_m_doc);
 #endif
 	if(!py_ssl_obj)
 		return NULL;
