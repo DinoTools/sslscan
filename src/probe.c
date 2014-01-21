@@ -315,9 +315,6 @@ int get_certificate(struct sslCheckOptions *options)
 	int socketDescriptor = 0;
 	SSL *ssl = NULL;
 	BIO *cipherConnectionBio = NULL;
-	BIO *bp;
-	BIO *stdoutBIO = NULL;
-	BIO *fileBIO = NULL;
 	X509 *x509Cert = NULL;
 	EVP_PKEY *publicKey = NULL;
 	const SSL_METHOD *sslMethod = NULL;
@@ -425,19 +422,7 @@ int get_certificate(struct sslCheckOptions *options)
 		return true;
 	}
 
-	// Setup BIO's
-	stdoutBIO = BIO_new(BIO_s_file());
-	BIO_set_fp(stdoutBIO, stdout, BIO_NOCLOSE);
-	if (options->xmlOutput != 0)
-	{
-		fileBIO = BIO_new(BIO_s_file());
-		BIO_set_fp(fileBIO, options->xmlOutput, BIO_NOCLOSE);
-	}
-
 	// Get Certificate...
-	printf("\n  %sSSL Certificate:%s\n", COL_BLUE, RESET);
-	if (options->xmlOutput != 0)
-		fprintf(options->xmlOutput, "  <certificate>\n");
 	x509Cert = SSL_get_peer_certificate(ssl);
 	if (x509Cert == NULL) {
 		printf("    Unable to parse certificate\n");
@@ -491,11 +476,6 @@ int get_certificate(struct sslCheckOptions *options)
 
 	// Free X509 Certificate...
 	//X509_free(x509Cert);
-
-	// Free BIO
-	BIO_free(stdoutBIO);
-	if (options->xmlOutput != 0)
-		BIO_free(fileBIO);
 
 	// Disconnect SSL over socket
 	SSL_shutdown(ssl);
