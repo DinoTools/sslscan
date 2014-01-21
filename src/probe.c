@@ -479,53 +479,6 @@ int get_certificate(struct sslCheckOptions *options)
 	}
 	PyDict_SetItemString(options->host_result, "certificate.x509", py_result);
 
-	//SSL_set_verify(ssl, SSL_VERIFY_NONE|SSL_VERIFY_CLIENT_ONCE, NULL);
-
-	// X509 v3...
-	if (!(X509_FLAG_COMPAT & X509_FLAG_NO_EXTENSIONS))
-	{
-		if (sk_X509_EXTENSION_num(x509Cert->cert_info->extensions) > 0)
-		{
-			printf("    X509v3 Extensions:\n");
-			if (options->xmlOutput != 0)
-				fprintf(options->xmlOutput, "   <X509v3-Extensions>\n");
-			for (tempInt = 0; tempInt < sk_X509_EXTENSION_num(x509Cert->cert_info->extensions); tempInt++)
-			{
-				// Get Extension...
-				extension = sk_X509_EXTENSION_value(x509Cert->cert_info->extensions, tempInt);
-
-				// Print Extension name...
-				printf("      ");
-				asn1Object = X509_EXTENSION_get_object(extension);
-				i2a_ASN1_OBJECT(stdoutBIO, asn1Object);
-				tempInt2 = X509_EXTENSION_get_critical(extension);
-				BIO_printf(stdoutBIO, ": %s\n", tempInt2 ? "critical" : "");
-				if (options->xmlOutput != 0)
-				{
-					fprintf(options->xmlOutput, "    <extension name=\"");
-					i2a_ASN1_OBJECT(fileBIO, asn1Object);
-					BIO_printf(fileBIO, "\"%s>", tempInt2 ? " level=\"critical\"" : "");
-				}
-
-				// Print Extension value...
-				if (!X509V3_EXT_print(stdoutBIO, extension, X509_FLAG_COMPAT, 8))
-				{
-					printf("        ");
-					M_ASN1_OCTET_STRING_print(stdoutBIO, extension->value);
-				}
-				if (options->xmlOutput != 0)
-				{
-					if (!X509V3_EXT_print(fileBIO, extension, X509_FLAG_COMPAT, 0))
-						M_ASN1_OCTET_STRING_print(fileBIO, extension->value);
-					fprintf(options->xmlOutput, "</extension>\n");
-				}
-				printf("\n");
-			}
-			if (options->xmlOutput != 0)
-				fprintf(options->xmlOutput, "   </X509v3-Extensions>\n");
-		}
-	}
-
 	// Verify Certificate...
 	verify_status = SSL_get_verify_result(ssl);
 	if (verify_status == X509_V_OK) {
