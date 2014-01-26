@@ -132,6 +132,7 @@ struct sslCheckOptions
 	char *privateKeyPassword;
 #ifdef PYTHON_SUPPORT
 	PyObject *host_result;
+	PyObject *py_config;
 	PyObject *py_output_handler;
 	PyObject *py_service_handler;
 #endif

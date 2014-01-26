@@ -1,6 +1,12 @@
+from sslscan import OutputConfig, config as g_config
+
+
 class Output(object):
 
     """Base class for all output handler."""
+
+    def __init__(self, config_string=None):
+        self.config = OutputConfig(g_config)
 
     def run(self, client, host_results):
         """

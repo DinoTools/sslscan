@@ -67,7 +67,7 @@ const char *xml_version = "1.10.0";
 /**
  * Print the help text.
  */
-void print_help(char *prog_name)
+void print_help(char *prog_name, struct sslCheckOptions *options)
 {
 	// Program version banner...
 	printf("%s%s%s\n", COL_BLUE, program_banner, RESET);
@@ -132,6 +132,8 @@ void print_help(char *prog_name)
 	printf("  %s--help-output=<name>%s Print help for a single output handler and exit\n", COL_GREEN, RESET);
 	printf("  %s--help-outputs%s       Print help for all output handlers and exit\n", COL_GREEN, RESET);
 	printf("  %s--help-output-list%s   List all output handlers with a short description\n", COL_GREEN, RESET);
+	printf("\n");
+	py_call_function(options->py_config, "print_help", NULL, NULL);
 	printf("\n");
 	printf("%sExamples:%s\n", COL_BLUE, RESET);
 	printf("  %s%s 127.0.0.1%s\n", COL_GREEN, prog_name, RESET);
@@ -209,6 +211,7 @@ int init(int argc, char *argv[], struct sslCheckOptions *options)
 		// ToDo:
 		return 1;
 	}
+	options->py_config = PyObject_GetAttrString(py_module, "config");
 	options->py_output_handler = PyObject_GetAttrString(py_module, "output");
 	options->py_service_handler = PyObject_GetAttrString(py_module, "service");
 	return 0;
@@ -231,17 +234,19 @@ int parse_args(int argc, char *argv[], struct sslCheckOptions *options)
 	PyObject *py_tmp;
 	int i;
 
+	PyObject *py_config_set = PyObject_GetAttrString(options->py_config, "set_value");
+
 	// Get program parameters
 	for (i = 1; i < argc; i++)
 	{
 		if (strcmp("--help", argv[i]) == 0) {
-			print_help(argv[0]);
+			print_help(argv[0], options);
 			return 0;
 		}
 
 		if ((strncmp("--help-output=", argv[i], 14) == 0) && (strlen(argv[i]) > 14)) {
 			py_tmp = Py_BuildValue("(s)", argv[i] + 14);
-			return py_call_function(options->py_output_handler, "print_help", py_tmp, NULL);
+			return py_call_function(options->py_output_handler, "print_help_verbose", py_tmp, NULL);
 		}
 
 		if (strcmp("--help-outputs", argv[i]) == 0) {
@@ -450,6 +455,15 @@ int parse_args(int argc, char *argv[], struct sslCheckOptions *options)
 			continue;
 		}
 
+		if (strncmp("--", argv[i], 2) == 0) {
+			PyObject *py_result;
+			PyObject *py_args = PyTuple_New(1);
+			PyTuple_SetItem(py_args, 0, PyUnicode_FromString(argv[i] + 2));
+			py_call_function(options->py_config, "set_value_from_string", py_args, &py_result);
+			if (PyObject_RichCompareBool(py_result, PyBool_FromLong(1), Py_EQ) == 1)
+				continue;
+		}
+
 		// Host
 		if (strncmp("--", argv[i], 2) != 0) {
 			// Get host...
@@ -457,7 +471,8 @@ int parse_args(int argc, char *argv[], struct sslCheckOptions *options)
 			continue;
 		}
 
-		print_help(argv[0]);
+		printf("Unknown option: '%s'\n", argv[i]);
+		print_help(argv[0], options);
 		// ToDo: define error codes
 		return 1;
 	}
