@@ -413,6 +413,47 @@ class DocWrapper(textwrap.TextWrapper):
                 wrapped_lines.extend(textwrap.TextWrapper.wrap(self, para))
         return wrapped_lines
 
+
+class Color(object):
+    def __init__(self, config):
+        self.config = config
+        CSI = "\33["
+        self.CSI = CSI
+        self.colors = {
+            "RESET": CSI + "0m",
+            "BLACK": CSI + "0;30m",
+            "RED": CSI + "0;31m",
+            "GREEN": CSI + "0;32m",
+            "YELLOW": CSI + "0;33m",
+            "BLUE": CSI + "0;34m",
+            "MAGENTA": CSI + "0;35m",
+            "CYAN": CSI + "0;36m",
+            "GRAY": CSI + "0;37m"
+        }
+
+        self.mapped_colors = {}
+        self.mapped_colors["default"] = {
+            "DANGER": "RED",
+            "ERROR": "RED",
+            "OK": "GREEN",
+            "SUCCESS": "GREEN",
+            "WARNING": "YELLOW"
+        }
+
+    def __getattr__(self, name):
+        # ToDo:
+        scheme = "default"
+        mapped_colors = self.mapped_colors.get(
+            scheme,
+            self.mapped_colors.get("default", {})
+        )
+        map_name = mapped_colors.get(name, "")
+        if map_name != "":
+            name = map_name
+        code = self.colors.get(name, "")
+        return code
+
+
 def load_handlers():
     import sslscan.handler.output
     path = sslscan.handler.output.__path__[0]
