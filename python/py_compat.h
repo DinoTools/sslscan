@@ -14,11 +14,15 @@
 PyMODINIT_FUNC \
 PyInit_##name(void)
 
+#define PySSLSCAN_MODRETURN(module) { return module; }
+
 #else /* IS_PY3K */
 
 #define PySSLSCAN_MODINIT(name) \
 void \
 init##name(void)
+
+#define PySSLSCAN_MODRETURN(module) { return; }
 
 #endif /* IS_PY3K */
 

@@ -39,16 +39,16 @@ PySSLSCAN_MODINIT(ssl)
 	py_ssl_obj = Py_InitModule3("sslscan.ssl", ssl_m_methods, ssl_m_doc);
 #endif
 	if(!py_ssl_obj)
-		return NULL;
+		PySSLSCAN_MODRETURN(NULL)
 
 	py_tmp_obj = PyErr_NewException("sslscan.Error", NULL, NULL);
         if (!py_tmp_obj || PyModule_AddObject(py_ssl_obj, "Error", py_tmp_obj)) {
 		Py_XDECREF(py_tmp_obj);
 		Py_DECREF(py_ssl_obj);
-		return NULL;
+		PySSLSCAN_MODRETURN(NULL)
 	}
 	PyModule_AddType(py_ssl_obj, "X509", &sslscan_ssl_x509_Type);
 	PyModule_AddType(py_ssl_obj, "X509Extension", &sslscan_ssl_x509ext_Type);
 	PyModule_AddType(py_ssl_obj, "PublicKey", &sslscan_ssl_pkey_Type);
-	return py_ssl_obj;
+	PySSLSCAN_MODRETURN(py_ssl_obj)
 }
