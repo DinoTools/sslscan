@@ -28,6 +28,13 @@ def get_cipher_name_color(cipher, config=None, color=None):
     return get_cipher_color(cipher, "cipher_name", config, color)
 
 rating_rules = {}
+
+rating_rules["none"] = {
+    "name": "No rules",
+    "description": "Do not use any rules to rate your server configuration",
+    "rules": {}
+}
+
 rating_rules["ssllabs-2009e"] = {
     "name": "SSL Labs Rating 2009e",
     "description": """Rating derived from SSL Server Rating Guide version 2009e (21 January 2014) by Qualys SSL Labs http://www.ssllabs.com""",
