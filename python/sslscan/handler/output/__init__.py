@@ -51,3 +51,23 @@ rating_rules["ssllabs-2009e"] = {
     }
 }
 
+rating_rules["rbsec"] = {
+    "name": "Rules from rbsec",
+    "description": """Rules from rbsec specified in the sslscan fork. https://github.com/rbsec/sslscan""",
+    "rules": {
+        "cipher_bits": [
+            lambda cipher: "OK" if cipher.get("bits", 0) > 56 else None,
+            lambda cipher: "WARNING" if cipher.get("bits") > 40 else None,
+            lambda cipher: "DANGER"
+        ],
+        "cipher_method_name": [
+            lambda cipher: "DANGER" if cipher.get("method.name") == "SSLv2" else None
+        ],
+        "cipher_name": [
+            lambda cipher: "DANGER" if "EXP" in cipher.get("name") else None,
+            lambda cipher: "WARNING" if "RC" in cipher.get("name") else None,
+            lambda cipher: "DANGER" if "ADH" in cipher.get("name") else None
+        ]
+    }
+}
+
