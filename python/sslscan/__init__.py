@@ -109,7 +109,7 @@ class ServiceManager(object):
         self.registered[name] = srv
 
 class Option(object):
-    def __init__(self, name, action="store", default=None, help="", metavar="", type="string", negation=None):
+    def __init__(self, name, action="store", default=None, help="", metavar="", type="string", values=None, negation=None):
         self.name = name
         self.action = action
         self.default = default
@@ -117,6 +117,9 @@ class Option(object):
         self.metavar = metavar
         self.negation = negation
         self.value = None
+        if type == "choice" and values is None:
+            values = {}
+        self.values = values
         self.type = type
 
     def convert_value_type(self, value):
@@ -173,9 +176,26 @@ class Option(object):
         )
         print(txt.fill(self.help))
         print()
+        if self.type == "choice":
+            txt = textwrap.TextWrapper(
+                initial_indent=" " * 24,
+                subsequent_indent=" " * 24,
+                width=65
+            )
+            print("                    Values:")
+            for n, v in self.values.items():
+                print("                      %s:" % n)
+                print(txt.fill(v))
+                print()
 
     def set_value(self, value):
         value = self.convert_value_type(value)
+
+        if self.type == "choice":
+            if value not in self.values:
+                return False
+            self.value = value
+            return True
 
         if self.action == "store":
             self.value = value
@@ -378,6 +398,7 @@ class OutputConfig(HandlerConfig):
             global_defaults = {}
         HandlerConfig.__init__(self, global_config)
         names = [
+            "color",
             "show-client-ciphers",
             "show-host-certificate",
             "show-host-ciphers",
@@ -441,8 +462,9 @@ class Color(object):
         }
 
     def __getattr__(self, name):
-        # ToDo:
-        scheme = "default"
+        scheme = self.config.get_value("color")
+        if scheme == "none":
+            return ""
         mapped_colors = self.mapped_colors.get(
             scheme,
             self.mapped_colors.get("default", {})
@@ -524,6 +546,17 @@ output_options.add_option(
     negation="hide-host-renegotiation",
     default=True,
     type="bool"
+)
+
+output_options.add_option(
+    "color",
+    help="Select color scheme",
+    default="auto",
+    type="choice",
+    values={
+        "auto": "Use colors if possible",
+        "none": "Do not use colors for highlighting"
+    }
 )
 
 config.add_option_group(output_options)
