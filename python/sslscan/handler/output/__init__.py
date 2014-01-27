@@ -6,7 +6,7 @@ def get_cipher_color(cipher, rules_name, config=None, color=None):
     if color == None:
         color = Color(config)
 
-    rules = highlight_rules.get("ssllabs-2009e")
+    rules = rating_rules.get(config.get_value("rating"))
     if rules == None:
         return ""
 
@@ -27,10 +27,10 @@ def get_cipher_method_name_color(cipher, config=None, color=None):
 def get_cipher_name_color(cipher, config=None, color=None):
     return get_cipher_color(cipher, "cipher_name", config, color)
 
-highlight_rules = {}
-highlight_rules["ssllabs-2009e"] = {
+rating_rules = {}
+rating_rules["ssllabs-2009e"] = {
     "name": "SSL Labs Rating 2009e",
-    "description": """Highlighting derived from SSL Server Rating Guide version 2009e (21 January 2014) by Qualys SSL Labs http://www.ssllabs.com""",
+    "description": """Rating derived from SSL Server Rating Guide version 2009e (21 January 2014) by Qualys SSL Labs http://www.ssllabs.com""",
     "rules": {
         "cipher_bits": [
             lambda cipher: "DANGER" if cipher.get("bits") < 128 else None,

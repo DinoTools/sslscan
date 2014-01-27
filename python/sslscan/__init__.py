@@ -399,6 +399,7 @@ class OutputConfig(HandlerConfig):
         HandlerConfig.__init__(self, global_config)
         names = [
             "color",
+            "rating",
             "show-client-ciphers",
             "show-host-certificate",
             "show-host-ciphers",
@@ -557,6 +558,20 @@ output_options.add_option(
         "auto": "Use colors if possible",
         "none": "Do not use colors for highlighting"
     }
+)
+
+import sslscan.handler.output
+
+rating_rules = {}
+for n, v in sslscan.handler.output.rating_rules.items():
+    rating_rules[n] = v.get("description", "")
+
+output_options.add_option(
+    "rating",
+    help="Use the specified set of rules to get a rating for your configuration",
+    default="ssllabs-2009e",
+    type="choice",
+    values=rating_rules
 )
 
 config.add_option_group(output_options)
