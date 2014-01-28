@@ -116,13 +116,21 @@ class Report(Output):
         if host.get("renegotiation.supported", None) is None:
             return
 
+        color_renegotiation = output_helper.get_renegotiation_color(
+            host,
+            self.config,
+            self.color
+        )
         print("  TLS renegotiation:")
+        msg = ""
         if host.get("renegotiation.secure", None):
-            print("    Secure session renegotiation supported")
+            msg = "    {0}Secure session renegotiation supported{1}"
         elif host.get("renegotiation.supported", None):
-            print("    Insecure session renegotiation supported")
+            msg = "    {0}Insecure session renegotiation supported{1}"
         elif host.get("renegotiation.supported", None) is not None:
-            print("    Session renegotiation not supported\n\n")
+            msg = "    {0}Session renegotiation not supported{1}"
+
+        print(msg.format(color_renegotiation, self.color.RESET))
         print("")
 
     def run(self, client, host_results):
