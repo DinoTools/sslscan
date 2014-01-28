@@ -14,7 +14,21 @@ class Report(Output):
     def _print_client_ciphers(self, client):
         print("  Supported Client Cipher(s):")
         for cipher in client.get("ciphers", []):
-            print("    %s" % cipher.get("name", ""))
+            color_args = (cipher, self.config, self.color)
+            color_code_bits = output_helper.get_cipher_bits_color(*color_args)
+            color_code_method_name = output_helper.get_cipher_method_name_color(*color_args)
+            color_code_name = output_helper.get_cipher_name_color(*color_args)
+            print(
+                "    {3}{0:5}{6} {4}{1:9}{6} {5}{2}{6}".format(
+                    cipher.get("method.name", ""),
+                    "%d bits" % cipher.get("bits", 0),
+                    cipher.get("name", ""),
+                    color_code_method_name,
+                    color_code_bits,
+                    color_code_name,
+                    self.color.RESET
+                )
+            )
         print("")
 
     def _print_host_certificate(self, host):
