@@ -77,17 +77,15 @@ class Report(Output):
             color_code_method_name = output_helper.get_cipher_method_name_color(*color_args)
             color_code_name = output_helper.get_cipher_name_color(*color_args)
             print(
-                "    %-9s %s%-6s%s %s%-9s%s %s%s%s" % (
+                "    {0:9} {4}{1:6}{7} {5}{2:9}{7} {6}{3}{7}".format(
                     cipher.get("status", "").capitalize(),
-                    color_code_method_name,
                     cipher.get("method.name", ""),
-                    self.color.RESET,
-                    color_code_bits,
                     "%d bits" % cipher.get("bits", 0),
-                    self.color.RESET,
-                    color_code_name,
                     cipher.get("name", ""),
-                    self.color.RESET,
+                    color_code_method_name,
+                    color_code_bits,
+                    color_code_name,
+                    self.color.RESET
                 )
             )
         print("")
@@ -97,13 +95,22 @@ class Report(Output):
         for cipher in host.get("ciphers.default", {}).values():
             if cipher is None:
                 continue
+            color_args = (cipher, self.config, self.color)
+            color_code_bits = output_helper.get_cipher_bits_color(*color_args)
+            color_code_method_name = output_helper.get_cipher_method_name_color(*color_args)
+            color_code_name = output_helper.get_cipher_name_color(*color_args)
             print(
-                "    %-6s %-9s %s" % (
+                "    {3}{0:6}{6} {4}{1:9}{6} {5}{2}{6}".format(
                     cipher.get("method.name", ""),
                     "%d bits" % cipher.get("bits", 0),
-                    cipher.get("name", "")
+                    cipher.get("name", ""),
+                    color_code_method_name,
+                    color_code_bits,
+                    color_code_name,
+                    self.color.RESET
                 )
             )
+            print("")
 
     def _print_host_renegotiation(self, host):
         if host.get("renegotiation.supported", None) is None:
