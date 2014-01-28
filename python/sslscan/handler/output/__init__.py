@@ -1,6 +1,6 @@
 from sslscan import Color, config as g_config
 
-def get_cipher_color(cipher, rules_name, config=None, color=None):
+def get_color(cipher, rules_name, config=None, color=None):
     if config == None:
         config = g_config
     if color == None:
@@ -19,13 +19,16 @@ def get_cipher_color(cipher, rules_name, config=None, color=None):
     return ""
 
 def get_cipher_bits_color(cipher, config=None, color=None):
-    return get_cipher_color(cipher, "cipher_bits", config, color)
+    return get_color(cipher, "cipher_bits", config, color)
 
 def get_cipher_method_name_color(cipher, config=None, color=None):
-    return get_cipher_color(cipher, "cipher_method_name", config, color)
+    return get_color(cipher, "cipher_method_name", config, color)
 
 def get_cipher_name_color(cipher, config=None, color=None):
-    return get_cipher_color(cipher, "cipher_name", config, color)
+    return get_color(cipher, "cipher_name", config, color)
+
+def get_renegotiation_color(host, config=None, color=None):
+    return get_color(host, "renegotiation", config, color)
 
 rating_rules = {}
 
