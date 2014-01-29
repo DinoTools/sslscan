@@ -20,6 +20,14 @@ static int use_unsafe_renegotiation_flag = 0;
 #define SSL3_FLAGS_ALLOW_UNSAFE_LEGACY_RENEGOTIATION 0x0010
 #endif
 
+struct ssl_alert_info {
+	int ret;
+	struct ssl_alert_info *next;
+};
+
+struct ssl_alert_info *g_ssl_alert_queue = NULL;
+
+void callback_ssl_info(const SSL *s, int where, int ret);
 int get_certificate(struct sslCheckOptions *options);
 int loadCerts(struct sslCheckOptions *options);
 static int password_callback(char *buf, int size, int rwflag, void *userdata);
@@ -30,6 +38,42 @@ int test_renegotiation_process_result( struct sslCheckOptions *options, struct r
 int test_host(struct sslCheckOptions *options);
 int tcpConnect(struct sslCheckOptions *options);
 void tls_reneg_init(struct sslCheckOptions *options);
+
+
+/**
+ * Free alert queue. Must be called before setting a callback function.
+ */
+int alert_queue_free()
+{
+	struct ssl_alert_info *p1, *p2;
+	p1 = g_ssl_alert_queue;
+	while (p1 != NULL) {
+		p2 = p1->next;
+		free(p1);
+		p1 = p2;
+	}
+	g_ssl_alert_queue = NULL;
+}
+
+/**
+ * Callback to capture SSL alerts
+ */
+void callback_ssl_info(const SSL *s, int where, int ret)
+{
+	if (!(where & SSL_CB_ALERT))
+		return;
+	struct ssl_alert_info *p = malloc(sizeof(struct ssl_alert_info));
+	p->ret = ret;
+	p->next = NULL;
+	if (g_ssl_alert_queue == NULL) {
+		g_ssl_alert_queue = p;
+		return;
+	}
+	struct ssl_alert_info *t = g_ssl_alert_queue;
+	while (t->next != NULL)
+		t = t->next;
+	t->next = p;
+}
 
 // Create a TCP socket
 int tcpConnect(struct sslCheckOptions *options)
@@ -736,6 +780,7 @@ int run_tests(struct sslCheckOptions *options)
 	return 0;
 }
 
+
 /**
  * Test a cipher.
  */
@@ -776,6 +821,8 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 		return 1;
 	}
 
+	alert_queue_free();
+	SSL_set_info_callback(ssl, callback_ssl_info);
 	// Connect socket and BIO
 	cipherConnectionBio = BIO_new_socket(socketDescriptor, BIO_NOCLOSE);
 
@@ -796,8 +843,33 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 #ifdef PYTHON_SUPPORT
 	PyObject *py_tmp;
 	PyObject *py_ciphers;
+	PyObject *py_result;
 
-	py_tmp = Py_BuildValue("{sisiszsssz}",
+	PyObject *py_module = PyImport_ImportModule("sslscan.ssl");
+	if (py_module == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
+	}
+
+	PyObject *py_alerts = PyList_New(0);
+	struct ssl_alert_info *p = g_ssl_alert_queue;
+
+	while (p != NULL) {
+		PyObject *py_args = PyTuple_New(1);
+		PyTuple_SetItem(py_args, 0, PyCapsule_New((void*) &(p->ret), "ret", NULL));
+		py_call_function(py_module, "Alert", py_args, &py_result);
+		if(py_result == NULL) {
+			PyErr_Print();
+			// ToDo:
+			continue;
+		}
+		PyList_Append(py_alerts, py_result);
+		p = p->next;
+	}
+
+	py_tmp = Py_BuildValue("{sOsisiszsssz}",
+		"alerts", py_alerts,
 		"bits", sslCipherPointer->bits,
 		"method.id", method_id,
 		"method.name", NULL,
@@ -830,6 +902,8 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 
 	return 0;
 }
+
+
 
 // Test for preferred ciphers
 int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD *ssl_method)
