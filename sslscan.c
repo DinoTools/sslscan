@@ -1236,7 +1236,7 @@ int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMe
 
                         // Connect SSL over socket
                         cipherStatus = SSL_connect(ssl);
-                        if (cipherStatus == 1)
+                        if (cipherStatus == 0 || cipherStatus == 1)
                         {
 #ifndef OPENSSL_NO_SSL2
                             if (sslMethod == SSLv2_client_method())
@@ -1313,7 +1313,8 @@ int defaultCipher(struct sslCheckOptions *options, const const SSL_METHOD *sslMe
                                 printf("%s\n", SSL_get_cipher_name(ssl));
 
                             // Disconnect SSL over socket
-                            SSL_shutdown(ssl);
+			    if (cipherStatus == 1)
+	                            SSL_shutdown(ssl);
                         }
 
                         // Free SSL object
@@ -1433,7 +1434,7 @@ int getCertificate(struct sslCheckOptions *options)
 
                         // Connect SSL over socket
                         cipherStatus = SSL_connect(ssl);
-                        if (cipherStatus == 1)
+                        if (cipherStatus == 0 || cipherStatus == 1)
                         {
 
                             // Setup BIO's
@@ -1763,7 +1764,8 @@ int getCertificate(struct sslCheckOptions *options)
                                 BIO_free(fileBIO);
 
                             // Disconnect SSL over socket
-                            SSL_shutdown(ssl);
+			    if (cipherStatus == 1)
+                                SSL_shutdown(ssl);
                         }
 
                         // Free SSL object
