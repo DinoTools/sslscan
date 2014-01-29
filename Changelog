@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version: 1.10.2
+Date   : xx/xx/2014
+Author : Philipp Seidel
+Changes: The following are a list of changes
+         > Fixes: #8 ('Scan incomplete with server requiring client
+	   certificate') reported by Stephan Mueller
+
 Version: 1.10.1
 Date   : 03/01/2014
 Author : Philipp Seidel
