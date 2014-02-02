@@ -48,6 +48,7 @@ PySSLSCAN_MODINIT(ssl)
 		PySSLSCAN_MODRETURN(NULL)
 	}
 	PyModule_AddType(py_ssl_obj, "Alert", &sslscan_ssl_alert_Type);
+	PyModule_AddType(py_ssl_obj, "Cipher", &sslscan_ssl_cipher_Type);
 	PyModule_AddType(py_ssl_obj, "X509", &sslscan_ssl_x509_Type);
 	PyModule_AddType(py_ssl_obj, "X509Extension", &sslscan_ssl_x509ext_Type);
 	PyModule_AddType(py_ssl_obj, "PublicKey", &sslscan_ssl_pkey_Type);
