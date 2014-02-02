@@ -35,10 +35,10 @@ class LegacyXML(Output):
             for cipher in host.get("ciphers", []):
                 fp.write(
                     "  <cipher status=\"%s\" sslversion=\"%s\" bits=\"%d\" cipher=\"%s\" />\n" % (
-                        cipher.get("status", "").capitalize(),
-                        cipher.get("method.name", ""),
-                        cipher.get("bits", 0),
-                        cipher.get("name", "")
+                        cipher.get_status_name().capitalize(),
+                        cipher.get_method_name(),
+                        cipher.get_bits(),
+                        cipher.get_name()
                     )
                 )
 
@@ -47,9 +47,9 @@ class LegacyXML(Output):
                     continue
                 fp.write(
                     "  <defaultcipher sslversion=\"%s\" bits=\"%d\" cipher=\"%s\" />\n" % (
-                        cipher.get("method.name", ""),
-                        cipher.get("bits", 0),
-                        cipher.get("name", "")
+                        cipher.get_method_name(),
+                        cipher.get_bits(),
+                        cipher.get_name()
                     )
                 )
 
