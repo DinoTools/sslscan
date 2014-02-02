@@ -77,6 +77,16 @@ DWORD dwError;
 #define FORCE_AF_INET4 1
 #define FORCE_AF_INET6 2
 
+#define SSLSCAN_CIPHER_STATUS_UNKNOWN  0
+#define SSLSCAN_CIPHER_STATUS_FAILED   1
+#define SSLSCAN_CIPHER_STATUS_REJECTED 2
+#define SSLSCAN_CIPHER_STATUS_ACCEPTED 3
+
+
+struct ssl_alert_info {
+	int ret;
+	struct ssl_alert_info *next;
+};
 
 struct sslCipher
 {
