@@ -20,6 +20,9 @@ static int use_unsafe_renegotiation_flag = 0;
 #define SSL3_FLAGS_ALLOW_UNSAFE_LEGACY_RENEGOTIATION 0x0010
 #endif
 
+struct ssl_alert_info *g_ssl_alert_queue = NULL;
+
+void callback_ssl_info(const SSL *s, int where, int ret);
 int get_certificate(struct sslCheckOptions *options);
 int loadCerts(struct sslCheckOptions *options);
 static int password_callback(char *buf, int size, int rwflag, void *userdata);
@@ -30,6 +33,42 @@ int test_renegotiation_process_result( struct sslCheckOptions *options, struct r
 int test_host(struct sslCheckOptions *options);
 int tcpConnect(struct sslCheckOptions *options);
 void tls_reneg_init(struct sslCheckOptions *options);
+
+
+/**
+ * Free alert queue. Must be called before setting a callback function.
+ */
+int alert_queue_free()
+{
+	struct ssl_alert_info *p1, *p2;
+	p1 = g_ssl_alert_queue;
+	while (p1 != NULL) {
+		p2 = p1->next;
+		free(p1);
+		p1 = p2;
+	}
+	g_ssl_alert_queue = NULL;
+}
+
+/**
+ * Callback to capture SSL alerts
+ */
+void callback_ssl_info(const SSL *s, int where, int ret)
+{
+	if (!(where & SSL_CB_ALERT))
+		return;
+	struct ssl_alert_info *p = malloc(sizeof(struct ssl_alert_info));
+	p->ret = ret;
+	p->next = NULL;
+	if (g_ssl_alert_queue == NULL) {
+		g_ssl_alert_queue = p;
+		return;
+	}
+	struct ssl_alert_info *t = g_ssl_alert_queue;
+	while (t->next != NULL)
+		t = t->next;
+	t->next = p;
+}
 
 // Create a TCP socket
 int tcpConnect(struct sslCheckOptions *options)
@@ -736,6 +775,7 @@ int run_tests(struct sslCheckOptions *options)
 	return 0;
 }
 
+
 /**
  * Test a cipher.
  */
@@ -751,6 +791,7 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 	char requestBuffer[200];
 	char buffer[50];
 	int resultSize = 0;
+	int tmp_int = 0;
 
 	// Create request buffer...
 	memset(requestBuffer, 0, 200);
@@ -776,6 +817,8 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 		return 1;
 	}
 
+	alert_queue_free();
+	SSL_set_info_callback(ssl, callback_ssl_info);
 	// Connect socket and BIO
 	cipherConnectionBio = BIO_new_socket(socketDescriptor, BIO_NOCLOSE);
 
@@ -790,33 +833,38 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 	// Connect SSL over socket
 	cipherStatus = SSL_connect(ssl);
 
-	char method_name[32];
-	int method_id = get_ssl_method_name(sslCipherPointer->sslMethod, method_name, sizeof(method_name));
-
 #ifdef PYTHON_SUPPORT
 	PyObject *py_tmp;
 	PyObject *py_ciphers;
+	PyObject *py_result;
 
-	py_tmp = Py_BuildValue("{sisiszsssz}",
-		"bits", sslCipherPointer->bits,
-		"method.id", method_id,
-		"method.name", NULL,
-		"name", sslCipherPointer->name,
-		"status", NULL
-	);
+	PyObject *py_module = PyImport_ImportModule("sslscan.ssl");
+	if (py_module == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
+	}
 
-	if(method_id > 0)
-		PyDict_SetItemString(py_tmp, "method.name", PyUnicode_FromString(method_name));
-
-	if (cipherStatus == 0)
-		PyDict_SetItemString(py_tmp, "status", PyUnicode_FromString("rejected"));
+	if (cipherStatus < 0)
+		tmp_int = SSLSCAN_CIPHER_STATUS_FAILED;
+	else if (cipherStatus == 0)
+		tmp_int = SSLSCAN_CIPHER_STATUS_REJECTED;
 	else if(cipherStatus == 1)
-		PyDict_SetItemString(py_tmp, "status", PyUnicode_FromString("accepted"));
+		tmp_int = SSLSCAN_CIPHER_STATUS_ACCEPTED;
 	else
-		PyDict_SetItemString(py_tmp, "status", PyUnicode_FromString("failed"));
+		tmp_int = SSLSCAN_CIPHER_STATUS_UNKNOWN;
+
+	PyObject *py_args = PyTuple_New(3);
+	PyTuple_SetItem(py_args, 0, PyCapsule_New((void*) sslCipherPointer, "cipher", NULL));
+	PyTuple_SetItem(py_args, 1, PyCapsule_New((void*) g_ssl_alert_queue, "alerts", NULL));
+	PyTuple_SetItem(py_args, 2, PyCapsule_New((void*) &tmp_int, "status", NULL));
+	py_call_function(py_module, "Cipher", py_args, &py_result);
+
+	// reset queue, ToDo:
+	g_ssl_alert_queue = NULL;
 
 	py_ciphers = PyDict_GetItemString(options->host_result, "ciphers");
-	PyList_Append(py_ciphers, py_tmp);
+	PyList_Append(py_ciphers, py_result);
 #endif
 
 	// Disconnect SSL over socket
@@ -830,6 +878,8 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 
 	return 0;
 }
+
+
 
 // Test for preferred ciphers
 int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD *ssl_method)
@@ -886,6 +936,8 @@ int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD 
 		return false;
 	}
 
+	alert_queue_free();
+	SSL_set_info_callback(ssl, callback_ssl_info);
 	// Connect socket and BIO
 	cipherConnectionBio = BIO_new_socket(socketDescriptor, BIO_NOCLOSE);
 
@@ -903,29 +955,52 @@ int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD 
 	char method_name[32];
 	int method_id = get_ssl_method_name(ssl_method, method_name, sizeof(method_name));
 
+	struct sslCipher *cipher;
+	cipher = malloc(sizeof(struct sslCipher));
+	memset(cipher, 0, sizeof(struct sslCipher));
+	cipher->next = NULL;
+	const SSL_CIPHER *c = SSL_get_current_cipher(ssl);
+
+	// Add cipher information...
+	cipher->sslMethod = ssl_method;
+	cipher->name = SSL_CIPHER_get_name(c);
+	cipher->version = SSL_CIPHER_get_version(c);
+	cipher->bits = SSL_CIPHER_get_bits(c, &cipher->alg_bits);
+	//SSL_CIPHER_description(c, &cipher->description, sizeof(cipher->description) - 1);
+
 	PyObject *py_tmp;
 	PyObject *py_ciphers;
+	PyObject *py_result;
 
-	int tmp_bits;
-	SSL_get_cipher_bits(ssl, &tmp_bits);
-
-	if (cipherStatus == 1) {
-		py_tmp = Py_BuildValue("{sisiszss}",
-			"bits", tmp_bits,
-			"method.id", method_id,
-			"method.name", NULL,
-			"name", SSL_get_cipher_name(ssl)
-		);
-
-		if(method_id > 0) {
-			PyDict_SetItemString(py_tmp, "method.name", PyUnicode_FromString(method_name));
-		}
-	} else {
-		// portable None
-		py_tmp = Py_BuildValue("");
+	PyObject *py_module = PyImport_ImportModule("sslscan.ssl");
+	if (py_module == NULL) {
+		PyErr_Print();
+		// ToDo:
+		return 1;
 	}
+
+	int tmp_int;
+
+	if (cipherStatus < 0)
+		tmp_int = SSLSCAN_CIPHER_STATUS_FAILED;
+	else if (cipherStatus == 0)
+		tmp_int = SSLSCAN_CIPHER_STATUS_REJECTED;
+	else if(cipherStatus == 1)
+		tmp_int = SSLSCAN_CIPHER_STATUS_ACCEPTED;
+	else
+		tmp_int = SSLSCAN_CIPHER_STATUS_UNKNOWN;
+
+	PyObject *py_args = PyTuple_New(3);
+	PyTuple_SetItem(py_args, 0, PyCapsule_New((void*) cipher, "cipher", NULL));
+	PyTuple_SetItem(py_args, 1, PyCapsule_New((void*) g_ssl_alert_queue, "alerts", NULL));
+	PyTuple_SetItem(py_args, 2, PyCapsule_New((void*) &tmp_int, "status", NULL));
+	py_call_function(py_module, "Cipher", py_args, &py_result);
+
+	// reset queue, ToDo:
+	g_ssl_alert_queue = NULL;
+
 	py_ciphers = PyDict_GetItemString(options->host_result, "ciphers.default");
-	PyDict_SetItemString(py_ciphers, method_name, py_tmp);
+	PyDict_SetItemString(py_ciphers, method_name, py_result);
 
 	if (cipherStatus == 1) {
 		// Disconnect SSL over socket
@@ -942,6 +1017,7 @@ int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD 
 
 	return status;
 }
+
 /**
  * Check if the server supports renegotiation
  *
