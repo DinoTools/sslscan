@@ -15,7 +15,7 @@ static PyObject * sslscan_ssl_cipher_get_alerts(sslscan_ssl_cipher_obj *self, Py
 		py_obj = PyObject_New(sslscan_ssl_alert_obj, &sslscan_ssl_alert_Type);
 		py_obj->ret = p->ret;
 		
-		PyList_Append(py_alerts, py_obj);
+		PyList_Append(py_alerts, (PyObject *)py_obj);
 		p = p->next;
 	}
 	
