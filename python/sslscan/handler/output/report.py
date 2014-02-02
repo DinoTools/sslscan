@@ -20,9 +20,9 @@ class Report(Output):
             color_code_name = output_helper.get_cipher_name_color(*color_args)
             print(
                 "    {3}{0:5}{6} {4}{1:9}{6} {5}{2}{6}".format(
-                    cipher.get("method.name", ""),
-                    "%d bits" % cipher.get("bits", 0),
-                    cipher.get("name", ""),
+                    cipher.get_method_name(),
+                    "%d bits" % cipher.get_bits(),
+                    cipher.get_name(),
                     color_code_method_name,
                     color_code_bits,
                     color_code_name,
@@ -92,16 +92,16 @@ class Report(Output):
             color_code_name = output_helper.get_cipher_name_color(*color_args)
 
             alert_info = ""
-            alerts = cipher.get("alerts", [])
+            alerts = cipher.get_alerts()
             if len(alerts) > 0:
                 # Show only first alert
                 alert_info = "({0}: {1})".format(alerts[0].get_type(), alerts[0].get_description())
             print(
                 "    {0:9} {5}{1:6}{8} {6}{2:9}{8} {7}{3}{8}  {4}".format(
-                    cipher.get("status", "").capitalize(),
-                    cipher.get("method.name", ""),
-                    "%d bits" % cipher.get("bits", 0),
-                    cipher.get("name", ""),
+                    cipher.get_status_name().capitalize(),
+                    cipher.get_method_name(),
+                    "%d bits" % cipher.get_bits(),
+                    cipher.get_name(),
                     alert_info,
                     color_code_method_name,
                     color_code_bits,
@@ -120,18 +120,25 @@ class Report(Output):
             color_code_bits = output_helper.get_cipher_bits_color(*color_args)
             color_code_method_name = output_helper.get_cipher_method_name_color(*color_args)
             color_code_name = output_helper.get_cipher_name_color(*color_args)
+
+            alert_info = ""
+            alerts = cipher.get_alerts()
+            if len(alerts) > 0:
+                # Show only first alert
+                alert_info = "({0}: {1})".format(alerts[0].get_type(), alerts[0].get_description())
             print(
-                "    {3}{0:6}{6} {4}{1:9}{6} {5}{2}{6}".format(
-                    cipher.get("method.name", ""),
-                    "%d bits" % cipher.get("bits", 0),
-                    cipher.get("name", ""),
+                "    {4}{0:6}{7} {5}{1:9}{7} {6}{2}{7} {3}".format(
+                    cipher.get_method_name(),
+                    "%d bits" % cipher.get_bits(),
+                    cipher.get_name(),
+                    alert_info,
                     color_code_method_name,
                     color_code_bits,
                     color_code_name,
                     self.color.RESET
                 )
             )
-            print("")
+        print("")
 
     def _print_host_renegotiation(self, host):
         if host.get("renegotiation.supported", None) is None:
