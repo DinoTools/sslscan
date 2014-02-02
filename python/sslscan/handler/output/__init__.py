@@ -43,13 +43,13 @@ rating_rules["ssllabs-2009e"] = {
     "description": """Rating derived from SSL Server Rating Guide version 2009e (21 January 2014) by Qualys SSL Labs http://www.ssllabs.com""",
     "rules": {
         "cipher_bits": [
-            lambda cipher: "DANGER" if cipher.get("bits") < 128 else None,
-            lambda cipher: "WARNING" if cipher.get("bits") < 256 else None,
-            lambda cipher: "OK" if cipher.get("bits", 0) >= 256 else None
+            lambda cipher: "DANGER" if cipher.get_bits() < 128 else None,
+            lambda cipher: "WARNING" if cipher.get_bits() < 256 else None,
+            lambda cipher: "OK" if cipher.get_bits() >= 256 else None
         ],
         "cipher_method_name": [
-            lambda cipher: "DANGER" if cipher.get("method.name") == "SSLv2" else None,
-            lambda cipher: "OK" if cipher.get("method.name") == "TLS12" else None
+            lambda cipher: "DANGER" if cipher.get_method_name() == "SSLv2" else None,
+            lambda cipher: "OK" if cipher.get_method_name() == "TLS12" else None
         ]
     }
 }
@@ -59,17 +59,17 @@ rating_rules["rbsec"] = {
     "description": """Rules from rbsec specified in the sslscan fork. https://github.com/rbsec/sslscan""",
     "rules": {
         "cipher_bits": [
-            lambda cipher: "OK" if cipher.get("bits", 0) > 56 else None,
-            lambda cipher: "WARNING" if cipher.get("bits") > 40 else None,
+            lambda cipher: "OK" if cipher.get_bits() > 56 else None,
+            lambda cipher: "WARNING" if cipher.get_bits() > 40 else None,
             lambda cipher: "DANGER"
         ],
         "cipher_method_name": [
-            lambda cipher: "DANGER" if cipher.get("method.name") == "SSLv2" else None
+            lambda cipher: "DANGER" if cipher.get_method_name() == "SSLv2" else None
         ],
         "cipher_name": [
-            lambda cipher: "DANGER" if "EXP" in cipher.get("name") else None,
-            lambda cipher: "WARNING" if "RC" in cipher.get("name") else None,
-            lambda cipher: "DANGER" if "ADH" in cipher.get("name") else None
+            lambda cipher: "DANGER" if "EXP" in cipher.get_name() else None,
+            lambda cipher: "WARNING" if "RC" in cipher.get_name() else None,
+            lambda cipher: "DANGER" if "ADH" in cipher.get_name() else None
         ]
     }
 }
