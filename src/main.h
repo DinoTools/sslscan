@@ -7,18 +7,10 @@
 // http://docs.python.org/3.3/c-api/intro.html
 #include <Python.h>
 #include "../python/py_compat.h"
+#include "sslscan.h"
 
 // Includes...
 #include <string.h>
-
-// http://msdn.microsoft.com/en-us/library/b0084kay.aspx
-#if defined(_WIN32) || defined(WIN32) || defined(__WIN32__) || defined(ming)
-#define PLAT_WINDOWS 1
-#endif
-
-#if defined(__FreeBSD__)
-#define PLAT_FREEBSD 1
-#endif
 
 // ToDo: check platform support
 #include <sys/time.h>
@@ -40,11 +32,7 @@ DWORD dwError;
 #endif //PLAT_WINDOWS
 
 #include <sys/stat.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
-#include <openssl/pkcs12.h>
-#include <openssl/x509.h>
-#include <openssl/x509v3.h>
+
 
 #if defined(PLAT_WINDOWS)
 #include <openssl/applink.c>
@@ -76,29 +64,6 @@ DWORD dwError;
 #define FORCE_AF_UNSPEC 0
 #define FORCE_AF_INET4 1
 #define FORCE_AF_INET6 2
-
-#define SSLSCAN_CIPHER_STATUS_UNKNOWN  0
-#define SSLSCAN_CIPHER_STATUS_FAILED   1
-#define SSLSCAN_CIPHER_STATUS_REJECTED 2
-#define SSLSCAN_CIPHER_STATUS_ACCEPTED 3
-
-
-struct ssl_alert_info {
-	int ret;
-	struct ssl_alert_info *next;
-};
-
-struct sslCipher
-{
-	// Cipher Properties...
-	const char *name;
-	char *version;
-	int bits;
-	int alg_bits;
-	char description[512];
-	const SSL_METHOD *sslMethod;
-	struct sslCipher *next;
-};
 
 struct sslCheckOptions
 {
@@ -172,7 +137,6 @@ int run_tests(struct sslCheckOptions *options);
 // from helper.c
 void delay_connection(struct sslCheckOptions *options);
 int fileExists(char *fileName);
-int get_ssl_method_name(const SSL_METHOD *ssl_method, char *name, size_t len);
 PyObject *new_client_result(struct sslCheckOptions *options);
 PyObject *new_host_result();
 int parseHostString(char *host, struct sslCheckOptions *options);
