@@ -695,9 +695,7 @@ int run_tests(struct sslCheckOptions *options)
 	if(!init_probe(options))
 		return false;
 
-#ifdef PYTHON_SUPPORT
 	PyObject *result_list = PyList_New(0);
-#endif
 
 	if (options->targets != NULL) {
 		if (fileExists(options->targets) == false) {
@@ -720,38 +718,30 @@ int run_tests(struct sslCheckOptions *options)
 				parseHostString(line, options);
 
 				// Test the host...
-#ifdef PYTHON_SUPPORT
 				options->host_result = new_host_result();
-#endif
 				status = test_host(options);
 				if(!status) {
 					// print error and continue
 					printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options->host, RESET);
 				} else {
-#ifdef PYTHON_SUPPORT
 					PyList_Append(result_list, options->host_result);
-#endif
 				}
 			}
 			readLine(fp, line, sizeof(line));
 		}
 
 	} else {
-#ifdef PYTHON_SUPPORT
 		options->host_result = new_host_result();
-#endif
 		status = test_host(options);
 		if(!status) {
 			printf("%sERROR: Scan has failed for host %s\n%s", COL_RED, options->host, RESET);
 			// ToDo:
 			return 1;
 		} else {
-#ifdef PYTHON_SUPPORT
 			PyList_Append(result_list, options->host_result);
-#endif
 		}
 	}
-#ifdef PYTHON_SUPPORT
+
 	// ToDo: Clean up
 	PyObject *client_result = new_client_result(options);
 	if (options->py_output_handler == NULL) {
@@ -767,7 +757,6 @@ int run_tests(struct sslCheckOptions *options)
 	if(py_result == NULL) {
 		PyErr_Print();
 	}
-#endif
 
 	if(!finalize_probe(options))
 		return false;
@@ -833,7 +822,6 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 	// Connect SSL over socket
 	cipherStatus = SSL_connect(ssl);
 
-#ifdef PYTHON_SUPPORT
 	PyObject *py_tmp;
 	PyObject *py_ciphers;
 	PyObject *py_result;
@@ -865,7 +853,6 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 
 	py_ciphers = PyDict_GetItemString(options->host_result, "ciphers");
 	PyList_Append(py_ciphers, py_result);
-#endif
 
 	// Disconnect SSL over socket
 	if (cipherStatus == 1)

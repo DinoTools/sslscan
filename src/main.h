@@ -1,8 +1,6 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-// ToDo: remove after all #ifdef checks are removed
-#define PYTHON_SUPPORT
 // Python.h MUST be the first Header-File included
 // http://docs.python.org/3.3/c-api/intro.html
 #include <Python.h>
@@ -105,12 +103,12 @@ struct sslCheckOptions
 	char *clientCertsFile;
 	char *privateKeyFile;
 	char *privateKeyPassword;
-#ifdef PYTHON_SUPPORT
+
+	// Python
 	PyObject *host_result;
 	PyObject *py_config;
 	PyObject *py_output_handler;
 	PyObject *py_service_handler;
-#endif
 };
 
 // store renegotiation test data

@@ -88,7 +88,6 @@ int get_ssl_method_name(const SSL_METHOD *ssl_method, char *name, size_t len)
 	return 0;
 }
 
-#ifdef PYTHON_SUPPORT
 /**
  * Create python client result object
  */
@@ -137,8 +136,6 @@ PyObject *new_host_result() {
 	PyDict_SetItemString(tmp, "certificate.blob", (PyObject *)Py_None);
 	return tmp;
 }
-#endif
-
 
 int parseHostString(char *host, struct sslCheckOptions *options)
 {
