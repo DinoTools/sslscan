@@ -74,10 +74,10 @@ class Legacy(Output):
         for cipher in host.get("ciphers", []):
             print(
                 "    %-9s %-6s %-9s %s" % (
-                    cipher.get("status", "").capitalize(),
-                    cipher.get("method.name", ""),
-                    "%d bits" % cipher.get("bits", 0),
-                    cipher.get("name", "")
+                    cipher.get_status_name().capitalize(),
+                    cipher.get_method_name(),
+                    "%d bits" % cipher.get_bits(),
+                    cipher.get_name()
                 )
             )
         print("")
@@ -89,9 +89,9 @@ class Legacy(Output):
                 continue
             print(
                 "    %-6s %-9s %s" % (
-                    cipher.get("method.name", ""),
-                    "%d bits" % cipher.get("bits", 0),
-                    cipher.get("name", "")
+                    cipher.get_method_name(),
+                    "%d bits" % cipher.get_bits(),
+                    cipher.get_name()
                 )
             )
 
