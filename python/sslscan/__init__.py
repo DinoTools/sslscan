@@ -404,7 +404,8 @@ class OutputConfig(HandlerConfig):
             "show-host-certificate",
             "show-host-ciphers",
             "show-host-preferred-ciphers",
-            "show-host-renegotiation"
+            "show-host-renegotiation",
+            "show-host-session"
         ]
         for name in names:
             option = global_config.get_option(name)
@@ -545,6 +546,14 @@ output_options.add_option(
     "show-host-renegotiation",
     help="Show renegotiation information",
     negation="hide-host-renegotiation",
+    default=True,
+    type="bool"
+)
+
+output_options.add_option(
+    "show-host-session",
+    help="Show session information like compression method",
+    negation="hide-host-session",
     default=True,
     type="bool"
 )
