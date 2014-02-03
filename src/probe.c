@@ -23,7 +23,7 @@ static int use_unsafe_renegotiation_flag = 0;
 struct ssl_alert_info *g_ssl_alert_queue = NULL;
 
 void callback_ssl_info(const SSL *s, int where, int ret);
-int get_certificate(struct sslCheckOptions *options);
+int get_certificate(struct sslCheckOptions *options, const SSL *ssl);
 int loadCerts(struct sslCheckOptions *options);
 static int password_callback(char *buf, int size, int rwflag, void *userdata);
 int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPointer);
@@ -346,161 +346,45 @@ int finalize_probe(struct sslCheckOptions *options)
 }
 
 // Get certificate...
-int get_certificate(struct sslCheckOptions *options)
+int get_certificate(struct sslCheckOptions *options, const SSL *ssl)
 {
-	// Variables...
-	int cipherStatus = 0;
-	int status = true;
-	int socketDescriptor = 0;
-	SSL *ssl = NULL;
-	BIO *cipherConnectionBio = NULL;
-	X509 *x509Cert = NULL;
-	EVP_PKEY *publicKey = NULL;
-	const SSL_METHOD *sslMethod = NULL;
-	ASN1_OBJECT *asn1Object = NULL;
-	X509_EXTENSION *extension = NULL;
-	char buffer[1024];
-	long tempLong = 0;
-	int tmp_int;
-	long tmp_long;
-	char *tmp_buffer_ptr = NULL;
-	int tempInt = 0;
-	int tempInt2 = 0;
-	long verify_status = 0;
-
-	// Connect to host
-	socketDescriptor = tcpConnect(options);
-	if (socketDescriptor == 0)
-		return false;
-
-	// Setup Context Object...
-	if( options->ssl_versions & tls_v10) {
-		if (options->verbose)
-			printf("sslMethod = TLSv1_method()");
-		sslMethod = TLSv1_method();
-	} else {
-		if (options->verbose)
-			printf("sslMethod = SSLv23_method()");
-		sslMethod = SSLv23_method();
-	}
-	options->ctx = SSL_CTX_new(sslMethod);
-
-	if (options->ctx == NULL) {
-		// Error Creating Context Object
-		printf("%sERROR: Could not create CTX object.%s\n", COL_RED, RESET);
-		// Disconnect from host
-		close(socketDescriptor);
-	}
-
-
-	if (SSL_CTX_set_cipher_list(options->ctx, "ALL:COMPLEMENTOFALL") == 0) {
-		printf("%s    ERROR: Could set cipher.%s\n", COL_RED, RESET);
-		// Free CTX Object
-		SSL_CTX_free(options->ctx);
-
-		// Disconnect from host
-		close(socketDescriptor);
-		return false;
-	}
-
-	// Load Certs if required...
-	if ((options->clientCertsFile != 0) || (options->privateKeyFile != 0))
-		if( loadCerts(options) == false) {
-			// Free CTX Object
-			SSL_CTX_free(options->ctx);
-
-			// Disconnect from host
-			close(socketDescriptor);
-			return false;
-		}
-
-	// Create SSL object...
-	ssl = SSL_new(options->ctx);
-	if (ssl == NULL) {
-		printf("%s    ERROR: Could create SSL object.%s\n", COL_RED, RESET);
-		// Free CTX Object
-		SSL_CTX_free(options->ctx);
-
-		// Disconnect from host
-		close(socketDescriptor);
-		return false;
-	}
-
-	// Connect socket and BIO
-	cipherConnectionBio = BIO_new_socket(socketDescriptor, BIO_NOCLOSE);
-
-	// Connect SSL and BIO
-	SSL_set_bio(ssl, cipherConnectionBio, cipherConnectionBio);
-
-#if OPENSSL_VERSION_NUMBER >= 0x0090806fL && !defined(OPENSSL_NO_TLSEXT)
-	// Based on http://does-not-exist.org/mail-archives/mutt-dev/msg13045.html
-	// TLS Virtual-hosting requires that the server present the correct
-	// certificate; to do this, the ServerNameIndication TLS extension is used.
-	// If TLS is negotiated, and OpenSSL is recent enough that it might have
-	// support, and support was enabled when OpenSSL was built, mutt supports
-	// sending the hostname we think we're connecting to, so a server can send
-	// back the correct certificate.
-	// NB: finding a server which uses this for IMAP is problematic, so this is
-	// untested.  Please report success or failure!  However, this code change
-	// has worked fine in other projects to which the contributor has added it,
-	// or HTTP usage.
-	SSL_set_tlsext_host_name (ssl, options->host);
-#endif
-
-	// Connect SSL over socket
-	cipherStatus = SSL_connect(ssl);
-	if (cipherStatus < 1) {
-		// Free SSL object
-		SSL_free(ssl);
-
-		// Free CTX Object
-		SSL_CTX_free(options->ctx);
-
-		// Disconnect from host
-		close(socketDescriptor);
+	if (options->host_state.extracted_information & SSLSCAN_HOST_INFO_CERTIFICATE)
 		return true;
-	}
+
+	// Variables...
+	X509 *x509Cert = NULL;
+	long verify_status = 0;
 
 	// Get Certificate...
 	x509Cert = SSL_get_peer_certificate(ssl);
 	if (x509Cert == NULL) {
 		printf("    Unable to parse certificate\n");
-
-		// Disconnect SSL over socket
-		SSL_shutdown(ssl);
-
-		// Free SSL object
-		SSL_free(ssl);
-
-		// Free CTX Object
-		SSL_CTX_free(options->ctx);
-
-		// Disconnect from host
-		close(socketDescriptor);
-
-		return true;
+		return false;
 	}
 
 	PyObject *py_module = PyImport_ImportModule("sslscan.ssl");
 	if (py_module == NULL) {
 		PyErr_Print();
 		// ToDo:
-		return 1;
+		return false;
 	}
+
 	PyObject *py_func = PyObject_GetAttrString(py_module, "X509");
 	if(py_func == NULL) {
 		PyErr_Print();
 		// ToDo:
-		return 1;
+		return false;
 	}
+
 	PyObject *py_args = PyTuple_New(1);
 	PyTuple_SetItem(py_args, 0, PyCapsule_New((void*) x509Cert, "x509", NULL));
 	PyObject *py_result = PyObject_CallObject(py_func, py_args);
 	if(py_result == NULL) {
 		PyErr_Print();
 		// ToDo:
-		return 1;
+		return false;
 	}
+
 	PyDict_SetItemString(options->host_result, "certificate.x509", py_result);
 
 	// Verify Certificate...
@@ -513,22 +397,9 @@ int get_certificate(struct sslCheckOptions *options)
 		PyDict_SetItemString(options->host_result, "certificate.verify.error_message", PyUnicode_FromString(X509_verify_cert_error_string(verify_status)));
 	}
 
-	// Free X509 Certificate...
-	//X509_free(x509Cert);
+	options->host_state.extracted_information |= SSLSCAN_HOST_INFO_CERTIFICATE;
 
-	// Disconnect SSL over socket
-	SSL_shutdown(ssl);
-
-	// Free SSL object
-	SSL_free(ssl);
-
-	// Free CTX Object
-	SSL_CTX_free(options->ctx);
-
-	// Disconnect from host
-	close(socketDescriptor);
-
-	return status;
+	return true;
 }
 
 /**
@@ -939,6 +810,7 @@ int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD 
 	// Connect SSL over socket
 	cipherStatus = SSL_connect(ssl);
 
+	get_certificate(options, ssl);
 	char method_name[32];
 	int method_id = get_ssl_method_name(ssl_method, method_name, sizeof(method_name));
 
@@ -1299,6 +1171,29 @@ int test_host(struct sslCheckOptions *options)
 	if (options->reneg)
 		test_renegotiation(options, TLSv1_client_method());
 
+	// Test preferred ciphers...
+#ifndef OPENSSL_NO_SSL2
+	if (options->ssl_versions & ssl_v2)
+		if(test_default_cipher(options, SSLv2_client_method()) == false)
+			return false;
+#endif
+
+	if (options->ssl_versions & ssl_v3)
+		if (test_default_cipher(options, SSLv3_client_method()) == false)
+			return false;
+	if (options->ssl_versions & tls_v10)
+		if (test_default_cipher(options, TLSv1_client_method()) == false)
+			return false;
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	if (options->ssl_versions & tls_v11)
+		if (test_default_cipher(options, TLSv1_1_client_method()) == false)
+			return false;
+	if (options->ssl_versions & tls_v12)
+		if (test_default_cipher(options, TLSv1_2_client_method()) == false)
+			return false;
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
 	// Test supported ciphers...
 	cipher = options->ciphers;
 	while (cipher != NULL) {
@@ -1329,32 +1224,8 @@ int test_host(struct sslCheckOptions *options)
 		cipher = cipher->next;
 	}
 
-	// Test preferred ciphers...
-#ifndef OPENSSL_NO_SSL2
-	if (options->ssl_versions & ssl_v2)
-		if(test_default_cipher(options, SSLv2_client_method()) == false)
-			return false;
-#endif
-
-	if (options->ssl_versions & ssl_v3)
-		if (test_default_cipher(options, SSLv3_client_method()) == false)
-			return false;
-	if (options->ssl_versions & tls_v10)
-		if (test_default_cipher(options, TLSv1_client_method()) == false)
-			return false;
-
-#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-	if (options->ssl_versions & tls_v11)
-		if (test_default_cipher(options, TLSv1_1_client_method()) == false)
-			return false;
-	if (options->ssl_versions & tls_v12)
-		if (test_default_cipher(options, TLSv1_2_client_method()) == false)
-			return false;
-#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
-
-
-	if (get_certificate(options) == false)
-		return false;
+	/*if (get_certificate(options) == false)
+		return false;*/
 
 	// Return status...
 	return true;

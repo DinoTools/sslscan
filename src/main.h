@@ -58,10 +58,18 @@ DWORD dwError;
 #define tls_v11 8
 #define tls_v12 16
 
+#define SSLSCAN_HOST_INFO_CERTIFICATE 1
+#define SSLSCAN_HOST_INFO_COMPRESSION 2
+
 // force address family
 #define FORCE_AF_UNSPEC 0
 #define FORCE_AF_INET4 1
 #define FORCE_AF_INET6 2
+
+struct host_state {
+	uint_fast8_t supported_ssl_versions;
+	uint_fast8_t extracted_information;
+};
 
 struct sslCheckOptions
 {
@@ -103,6 +111,8 @@ struct sslCheckOptions
 	char *clientCertsFile;
 	char *privateKeyFile;
 	char *privateKeyPassword;
+
+	struct host_state host_state;
 
 	// Python
 	PyObject *host_result;
