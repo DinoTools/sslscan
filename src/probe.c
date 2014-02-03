@@ -403,6 +403,40 @@ int get_certificate(struct sslCheckOptions *options, const SSL *ssl)
 }
 
 /**
+ * Get compression information from ssl session.
+ */
+int get_compression(struct sslCheckOptions *options, SSL *ssl)
+{
+	if (options->host_state.extracted_information & SSLSCAN_HOST_INFO_COMPRESSION)
+		return true;
+
+#ifndef OPENSSL_NO_COMP
+	PyObject *py_obj;
+	const COMP_METHOD *compression, *expansion;
+
+	compression = SSL_get_current_compression(ssl);
+	expansion = SSL_get_current_expansion(ssl);
+
+	if (compression)
+		py_obj = PyUnicode_FromString(SSL_COMP_get_name(compression));
+	else
+		py_obj = Py_BuildValue("");
+
+	PyDict_SetItemString(options->host_result, "session.compression", py_obj);
+
+	if (expansion)
+		py_obj = PyUnicode_FromString(SSL_COMP_get_name(expansion));
+	else
+		py_obj = Py_BuildValue("");
+
+	PyDict_SetItemString(options->host_result, "session.expansion", py_obj);
+#endif
+
+	options->host_state.extracted_information |= SSLSCAN_HOST_INFO_COMPRESSION;
+	return true;
+}
+
+/**
  * Initialize OpenSSL
  * - Add algorithms
  * - Load strings
@@ -811,6 +845,7 @@ int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD 
 	cipherStatus = SSL_connect(ssl);
 
 	get_certificate(options, ssl);
+	get_compression(options, ssl);
 	char method_name[32];
 	int method_id = get_ssl_method_name(ssl_method, method_name, sizeof(method_name));
 
