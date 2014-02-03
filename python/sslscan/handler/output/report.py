@@ -161,6 +161,21 @@ class Report(Output):
         print(msg.format(color_renegotiation, self.color.RESET))
         print("")
 
+    def _print_host_session(self, host):
+        print("  Session:")
+
+        compression = host.get("session.compression", None)
+        if not compression:
+            compression = "None"
+        print("    {0}".format(compression))
+
+        expansion = host.get("session.expansion", None)
+        if not expansion:
+            expansion = "None"
+        print("    {0}".format(expansion))
+
+        print("")
+
     def run(self, client, host_results):
         if self.config.get_value("show-client-ciphers"):
             self._print_client_ciphers(client)
@@ -174,6 +189,9 @@ class Report(Output):
 
             if self.config.get_value("show-host-preferred-ciphers"):
                 self._print_host_preferred_cipers(host)
+
+            if self.config.get_value("show-host-session"):
+                self._print_host_session(host)
 
             if self.config.get_value("show-host-certificate"):
                 self._print_host_certificate(host)
