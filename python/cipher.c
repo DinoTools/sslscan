@@ -91,7 +91,10 @@ static PyObject * sslscan_ssl_cipher_tp_new(PyTypeObject *type, PyObject *args, 
 	self = PyObject_New(sslscan_ssl_cipher_obj, &sslscan_ssl_cipher_Type);
 	if (PyArg_ParseTuple(args, "OOO:Alert", &py_cipher, &py_alerts, &py_status)) {
 		self->cipher = (struct sslCipher*)PyCapsule_GetPointer(py_cipher, "cipher");
-		self->alerts = (struct ssl_alert_info*)PyCapsule_GetPointer(py_alerts, "alerts");
+		if (py_alerts == NULL)
+			self->alerts = NULL;
+		else
+			self->alerts = (struct ssl_alert_info*)PyCapsule_GetPointer(py_alerts, "alerts");
 		self->status = *(int*)PyCapsule_GetPointer(py_status, "status");
 	}
 
