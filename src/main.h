@@ -58,6 +58,9 @@ DWORD dwError;
 #define tls_v11 8
 #define tls_v12 16
 
+#define SSLSCAN_SCAN_MODE_FAST 1
+#define SSLSCAN_SCAN_MODE_FULL 2
+
 #define SSLSCAN_HOST_INFO_CERTIFICATE 1
 #define SSLSCAN_HOST_INFO_COMPRESSION 2
 
@@ -95,6 +98,7 @@ struct sslCheckOptions
 	int sslbugs;
 	int http;
 	int verbose;
+	int_fast8_t scan_mode;
 
 	// File Handles...
 	FILE *xmlOutput;

@@ -177,6 +177,7 @@ int init(int argc, char *argv[], struct sslCheckOptions *options)
 
 	options->ssl_versions = ssl_all;
 	options->pout = false;
+	options->scan_mode = SSLSCAN_SCAN_MODE_FAST;
 	SSL_library_init();
 
 #ifdef IS_PY3K
@@ -431,6 +432,22 @@ int parse_args(int argc, char *argv[], struct sslCheckOptions *options)
 		if (strcmp("--bugs", argv[i]) == 0) {
 			options->sslbugs = 1;
 			continue;
+		}
+
+		else if (strncmp("--scan_mode=", argv[i], 12) == 0) {
+			if (strcmp("fast", argv[i] + 12) == 0) {
+				options->scan_mode = SSLSCAN_SCAN_MODE_FAST;
+				continue;
+			}
+
+			if (strcmp("full", argv[i] + 12) == 0) {
+				options->scan_mode = SSLSCAN_SCAN_MODE_FULL;
+				continue;
+			}
+
+			// ToDo: print error msg
+			print_help(argv[0], options);
+			return 0;
 		}
 
 		// SSL HTTP Get...

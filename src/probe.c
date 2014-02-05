@@ -749,7 +749,8 @@ int test_cipher(struct sslCheckOptions *options, struct sslCipher *sslCipherPoin
 
 	PyObject *py_args = PyTuple_New(3);
 	PyTuple_SetItem(py_args, 0, PyCapsule_New((void*) sslCipherPointer, "cipher", NULL));
-	PyTuple_SetItem(py_args, 1, PyCapsule_New((void*) g_ssl_alert_queue, "alerts", NULL));
+	if (g_ssl_alert_queue != NULL)
+		PyTuple_SetItem(py_args, 1, PyCapsule_New((void*) g_ssl_alert_queue, "alerts", NULL));
 	PyTuple_SetItem(py_args, 2, PyCapsule_New((void*) &tmp_int, "status", NULL));
 	py_call_function(py_module, "Cipher", py_args, &py_result);
 
@@ -875,14 +876,24 @@ int test_default_cipher(struct sslCheckOptions *options, const const SSL_METHOD 
 
 	int tmp_int;
 
-	if (cipherStatus < 0)
+	if (cipherStatus < 0) {
 		tmp_int = SSLSCAN_CIPHER_STATUS_FAILED;
-	else if (cipherStatus == 0)
+		status = false;
+	} else if (cipherStatus == 0) {
 		tmp_int = SSLSCAN_CIPHER_STATUS_REJECTED;
-	else if(cipherStatus == 1)
+		status = true;
+		if (g_ssl_alert_queue != NULL) {
+			// rejected + first alert type is fatal -> failed internal (info used for fast scan mode)
+			if (strcmp("F", SSL_alert_type_string(g_ssl_alert_queue->ret)) == 0)
+				status = false;
+		}
+	} else if(cipherStatus == 1) {
 		tmp_int = SSLSCAN_CIPHER_STATUS_ACCEPTED;
-	else
+		status = true;
+	} else {
 		tmp_int = SSLSCAN_CIPHER_STATUS_UNKNOWN;
+		status = false;
+	}
 
 	PyObject *py_args = PyTuple_New(3);
 	PyTuple_SetItem(py_args, 0, PyCapsule_New((void*) cipher, "cipher", NULL));
@@ -1209,29 +1220,36 @@ int test_host(struct sslCheckOptions *options)
 	// Test preferred ciphers...
 #ifndef OPENSSL_NO_SSL2
 	if (options->ssl_versions & ssl_v2)
-		if(test_default_cipher(options, SSLv2_client_method()) == false)
-			return false;
+		if (test_default_cipher(options, SSLv2_client_method()))
+			options->host_state.supported_ssl_versions |= ssl_v2;
 #endif
 
 	if (options->ssl_versions & ssl_v3)
-		if (test_default_cipher(options, SSLv3_client_method()) == false)
-			return false;
+		if (test_default_cipher(options, SSLv3_client_method()))
+			options->host_state.supported_ssl_versions |= ssl_v3;
+
 	if (options->ssl_versions & tls_v10)
-		if (test_default_cipher(options, TLSv1_client_method()) == false)
-			return false;
+		if (test_default_cipher(options, TLSv1_client_method()))
+			options->host_state.supported_ssl_versions |= tls_v10;
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 	if (options->ssl_versions & tls_v11)
-		if (test_default_cipher(options, TLSv1_1_client_method()) == false)
-			return false;
+		if (test_default_cipher(options, TLSv1_1_client_method()))
+			options->host_state.supported_ssl_versions |= tls_v11;
+
 	if (options->ssl_versions & tls_v12)
-		if (test_default_cipher(options, TLSv1_2_client_method()) == false)
-			return false;
+		if (test_default_cipher(options, TLSv1_2_client_method()))
+			options->host_state.supported_ssl_versions |= tls_v12;;
 #endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
 
 	// Test supported ciphers...
 	cipher = options->ciphers;
 	while (cipher != NULL) {
+		if (options->scan_mode == SSLSCAN_SCAN_MODE_FAST && (options->host_state.supported_ssl_versions & get_ssl_method_id(cipher->sslMethod)) == 0) {
+			// ToDo: add cipher to result list and mark as skipped
+			cipher = cipher->next;
+			continue;
+		}
 		// Setup Context Object...
 		options->ctx = SSL_CTX_new(cipher->sslMethod);
 		if (options->ctx == NULL) {
