@@ -145,6 +145,8 @@ int run_tests(struct sslCheckOptions *options);
 // from helper.c
 void delay_connection(struct sslCheckOptions *options);
 int fileExists(char *fileName);
+const SSL_METHOD *get_ssl_method_by_id(uint_fast8_t id);
+uint_fast8_t get_ssl_method_id(const SSL_METHOD *method);
 PyObject *new_client_result(struct sslCheckOptions *options);
 PyObject *new_host_result();
 int parseHostString(char *host, struct sslCheckOptions *options);
@@ -153,5 +155,4 @@ int py_call_function(PyObject *py_obj, const char *name, PyObject *py_args, PyOb
 void readLine(FILE *input, char *lineFromFile, int maxSize);
 int readOrLogAndClose(int fd, void* buffer, size_t len, const struct sslCheckOptions *options);
 int timeval_substract(struct timeval *t1, struct timeval *t2, struct timeval *result);
-
 #endif /* MAIN_H */

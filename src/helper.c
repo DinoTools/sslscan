@@ -45,6 +45,62 @@ int fileExists(char *fileName)
 }
 
 /**
+ * Get a ssl method pointer by internal ID
+ * @param id Internal ID
+ * @return SSL method pointer
+ */
+const SSL_METHOD *get_ssl_method_by_id(uint_fast8_t id)
+{
+#ifndef OPENSSL_NO_SSL2
+	if (id == ssl_v2)
+		return SSLv2_client_method();
+#endif // #ifndef OPENSSL_NO_SSL2
+	if (id == ssl_v3)
+		return SSLv3_client_method();
+
+	if (id == tls_v10)
+		return TLSv1_client_method();
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	if (id == tls_v11)
+		return TLSv1_1_client_method();
+
+	if (id == tls_v12)
+		return TLSv1_2_client_method();
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
+	return NULL;
+}
+
+/**
+ * Get internal ssl method ID
+ * @param SSL method pointer
+ * @return Internal ID or 0 if unknown
+ */
+uint_fast8_t get_ssl_method_id(const SSL_METHOD *method)
+{
+#ifndef OPENSSL_NO_SSL2
+	if (method == SSLv2_client_method())
+		return ssl_v2;
+#endif // #ifndef OPENSSL_NO_SSL2
+	if (method == SSLv3_client_method())
+		return ssl_v3;
+
+	if (method == TLSv1_client_method())
+		return tls_v10;
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+	if (method == TLSv1_1_client_method())
+		return tls_v11;
+
+	if (method == TLSv1_2_client_method())
+		return tls_v12;
+#endif // #if OPENSSL_VERSION_NUMBER >= 0x1000008fL || OPENSSL_VERSION_NUMBER >= 0x1000100fL
+
+	return 0;
+}
+
+/**
  * Get the name of the ssl method
  * @param ssl_method The SSL method
  * @param name Pointer to store the name
