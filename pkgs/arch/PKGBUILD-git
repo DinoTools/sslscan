@@ -1,8 +1,8 @@
 # Maintainer: Philipp Seidel <phibo at dinotools dot org>
 # Contributor: Remi Gacogne <rgacogne-arch at coredump dot fr>
 pkgname=sslscan-git
-pkgver=1.10.1
-pkgrel=2
+pkgver=1.10.0.r119.geae3189
+pkgrel=1
 pkgdesc='A fast tool to scan SSL services, such as HTTPS.'
 arch=('i686' 'x86_64')
 url='https://github.com/DinoTools/sslscan'
