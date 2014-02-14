@@ -167,12 +167,12 @@ class Report(Output):
         compression = host.get("session.compression", None)
         if not compression:
             compression = "None"
-        print("    {0}".format(compression))
+        print("    Compression: {0}".format(compression))
 
         expansion = host.get("session.expansion", None)
         if not expansion:
             expansion = "None"
-        print("    {0}".format(expansion))
+        print("    Expansion: {0}".format(expansion))
 
         print("")
 
