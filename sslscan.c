@@ -128,8 +128,8 @@ const char *program_banner = "                   _\n"
                              "          / __/ __| / __|/ __/ _` | '_ \\\n"
                              "          \\__ \\__ \\ \\__ \\ (_| (_| | | | |\n"
                              "          |___/___/_|___/\\___\\__,_|_| |_|\n\n";
-const char *program_version = "sslscan version 1.10.1 ";
-const char *xml_version = "1.10.1";
+const char *program_version = "sslscan version 1.10.2 ";
+const char *xml_version = "1.10.2";
 
 
 struct sslCipher
