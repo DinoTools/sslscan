@@ -82,6 +82,9 @@ static char sslscan_ssl_x509_get_signature_algorithm_doc[] = "";
 
 static PyObject * sslscan_ssl_x509_get_signature_algorithm(sslscan_ssl_x509_obj *self, PyObject *args)
 {
+	ASN1_OBJECT *alg;
+	int nid;
+
 	//char *tmp_buffer_ptr;
 	//long tmp_long;
 	//PyObject *res = Py_BuildValue("");
@@ -109,9 +112,6 @@ static PyObject * sslscan_ssl_x509_get_signature_algorithm(sslscan_ssl_x509_obj 
 
 	return res;*/
 	//ToDo: check
-	ASN1_OBJECT *alg;
-	int nid;
-
 	if (!PyArg_ParseTuple(args, ":get_signature_algorithm")) {
 		return NULL;
 	}

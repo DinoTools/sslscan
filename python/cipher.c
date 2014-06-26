@@ -4,12 +4,15 @@ static char sslscan_ssl_cipher_get_alerts_doc[] = "";
 
 static PyObject * sslscan_ssl_cipher_get_alerts(sslscan_ssl_cipher_obj *self, PyObject *args)
 {
-	if (!PyArg_ParseTuple(args, ":get_alerts"))
-		return Py_BuildValue("");;
-
-	PyObject *py_alerts = PyList_New(0);
+	PyObject *py_alerts;
 	sslscan_ssl_alert_obj *py_obj;
-	struct ssl_alert_info *p = self->alerts;
+	struct ssl_alert_info *p;
+
+	if (!PyArg_ParseTuple(args, ":get_alerts"))
+		return Py_BuildValue("");
+
+	py_alerts = PyList_New(0);
+	p = self->alerts;
 
 	while (p != NULL) {
 		py_obj = PyObject_New(sslscan_ssl_alert_obj, &sslscan_ssl_alert_Type);
@@ -18,7 +21,7 @@ static PyObject * sslscan_ssl_cipher_get_alerts(sslscan_ssl_cipher_obj *self, Py
 		PyList_Append(py_alerts, (PyObject *)py_obj);
 		p = p->next;
 	}
-	
+
 	return py_alerts;
 }
 
@@ -36,11 +39,12 @@ static char sslscan_ssl_cipher_get_method_name_doc[] = "";
 
 static PyObject * sslscan_ssl_cipher_get_method_name(sslscan_ssl_cipher_obj *self, PyObject *args)
 {
+	char method_name[32];
+
 	if (!PyArg_ParseTuple(args, ":get_method_name"))
 		return Py_BuildValue("");
 
-	char method_name[32];
-	int method_id = get_ssl_method_name(self->cipher->sslMethod, method_name, sizeof(method_name));
+	get_ssl_method_name(self->cipher->sslMethod, method_name, sizeof(method_name));
 
 	return PyUnicode_FromString(method_name);
 }
