@@ -84,6 +84,7 @@ struct sslCheckOptions
 	int forceAddressFamily;
 	int noFailed;
 	int reneg;
+	int heartbleed;
 	int starttls_ftp;
 	int starttls_imap;
 	int starttls_pop3;

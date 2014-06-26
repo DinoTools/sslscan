@@ -113,6 +113,7 @@ void print_help(char *prog_name, struct sslCheckOptions *options)
 	printf("  %s--certs=<file>%s       A file containing PEM/ASN1 formatted\n", COL_GREEN, RESET);
 	printf("                       client certificates.\n");
 	printf("  %s--renegotiation%s      Attempt TLS renegotiation\n", COL_GREEN, RESET);
+	printf("  %s--heartbleed%s         Test for heartbleed\n", COL_GREEN, RESET);
 	printf("  %s--starttls-ftp%s       STARTTLS setup for FTP\n", COL_GREEN, RESET);
 	printf("  %s--starttls-imap%s      STARTTLS setup for IMAP\n", COL_GREEN, RESET);
 	printf("  %s--starttls-pop3%s      STARTTLS setup for POP3\n", COL_GREEN, RESET);
@@ -164,6 +165,7 @@ int init(int argc, char *argv[], struct sslCheckOptions *options)
 	options->forceAddressFamily = FORCE_AF_UNSPEC;
 	options->noFailed = false;
 	options->reneg = false;
+	options->heartbleed = false;
 	options->starttls_ftp = false;
 	options->starttls_imap = false;
 	options->starttls_pop3 = false;
@@ -331,6 +333,12 @@ int parse_args(int argc, char *argv[], struct sslCheckOptions *options)
 		// Should we check for TLS renegotiation?
 		if (strcmp("--renegotiation", argv[i]) == 0) {
 			options->reneg = true;
+			continue;
+		}
+
+		// Should we check for Heartbleed?
+		if (strcmp("--heartbleed", argv[i]) == 0) {
+			options->heartbleed = true;
 			continue;
 		}
 

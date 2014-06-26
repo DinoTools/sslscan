@@ -176,6 +176,11 @@ class Report(Output):
 
         print("")
 
+    def _print_vulnerability(self, host):
+        vul_heartbleed = host.get("vulnerability.heartbleed")
+        if vul_heartbleed is not None:
+            print("  Heartbleed: {0}".format("vulnerable" if vul_heartbleed else "not vulnerable"))
+
     def run(self, client, host_results):
         if self.config.get_value("show-client-ciphers"):
             self._print_client_ciphers(client)
@@ -195,5 +200,7 @@ class Report(Output):
 
             if self.config.get_value("show-host-certificate"):
                 self._print_host_certificate(host)
+
+            self._print_vulnerability(host)
 
 output.register("report", Report)
